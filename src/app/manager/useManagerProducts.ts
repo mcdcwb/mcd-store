@@ -90,11 +90,20 @@ export function useManagerProducts(token: string, onUnauthorized: (message: stri
     }
   };
   const setCarousel = (id: number, inCarousel: boolean) => mutate(async () => {
-    const product = await api.setCarousel(id, inCarousel);
+    await api.setCarousel(id, inCarousel);
     if (!mounted.current) return;
-    setProducts(previous => previous.map(p => p.id === id ? product : p));
+    setProducts(await api.list());
     if (inCarousel) notify.change("Produto adicionado ao carrossel!");
     else notify.removal("Produto removido do carrossel!");
+  }, true);
+  const setCarouselOrder = (productIds: number[]) => mutate(async () => {
+    const ordered = await api.setCarouselOrder(productIds);
+    if (!mounted.current) return;
+    const positions = new Map(ordered.map(product => [product.id, product.carouselPosition]));
+    setProducts(previous => previous.map(product => positions.has(product.id)
+      ? { ...product, carouselPosition: positions.get(product.id)! }
+      : product));
+    notify.positive("Ordem do carrossel salva!");
   }, true);
   const saveCategory = async (name: string, id?: number): Promise<Category | null> => {
     let saved: Category | null = null;
@@ -114,5 +123,5 @@ export function useManagerProducts(token: string, onUnauthorized: (message: stri
     setCategories(previous => previous.filter(c => c.id !== id));
     notify.removal("Categoria excluída com sucesso!");
   }, false, true);
-  return { upload, products, categories, saveCategory, removeCategory, loading, loaded, busy, error, save, remove, setCarousel, reload: () => setRevision(value => value + 1) };
+  return { upload, products, categories, saveCategory, removeCategory, loading, loaded, busy, error, save, remove, setCarousel, setCarouselOrder, reload: () => setRevision(value => value + 1) };
 }

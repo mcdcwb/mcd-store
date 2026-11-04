@@ -160,6 +160,17 @@ test("carousel API sends an explicit selection and preserves backend limit error
   await assert.rejects(rejected.setCarousel(6, true), { status: 409, message: "Limite de 5 produtos no carrossel." });
 });
 
+test("carousel order API sends the selected product sequence and normalizes the persisted order", async () => {
+  const product = (id, position) => ({ ...toInput(draft()), id, category: { id: 1, name: "Camisetas" }, inCarousel: true, carouselPosition: position, colors: [{ ...color, id: 10 + id }] });
+  const api = createManagerApi("verified-token", "/api", async (url, init) => {
+    assert.equal(url, "/api/produtos/carrossel/ordem");
+    assert.equal(init.method, "PATCH");
+    assert.deepEqual(JSON.parse(init.body), { productIds: [3, 2, 1] });
+    return Response.json([product(3, 0), product(2, 1), product(1, 2)]);
+  });
+  assert.deepEqual((await api.setCarouselOrder([3, 2, 1])).map(item => [item.id, item.carouselPosition]), [[3, 0], [2, 1], [1, 2]]);
+});
+
 test("image upload sends authenticated multipart without forcing a boundary and returns a secure URL", async () => {
   const url = "https://res.cloudinary.com/test/image/upload/v1/products/image.png";
   const file = new File(["png"], "image.png", { type: "image/png" });

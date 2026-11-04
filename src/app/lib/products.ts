@@ -5,6 +5,7 @@ export interface ProductColor {
 }
 export interface Product {
   inCarousel: boolean;
+  carouselPosition?: number;
   colors: ProductColor[];
   colorId: number;
   id: number;
@@ -66,7 +67,7 @@ export function adaptProduct(value: unknown): Product {
   if (new Set(colors.map(c => c.id)).size !== colors.length) throw new Error("Cor duplicada.");
   const first = colors[0];
   return {
-    id: p.id as number, name: p.name, price, public: p.public, category: categoryName, categoryId: categoryId as number | undefined, isPublished: p.isPublished !== false, inCarousel: p.inCarousel === true,
+    id: p.id as number, name: p.name, price, public: p.public, category: categoryName, categoryId: categoryId as number | undefined, isPublished: p.isPublished !== false, inCarousel: p.inCarousel === true, ...(typeof p.carouselPosition === "number" ? { carouselPosition: p.carouselPosition } : {}),
     description: typeof p.description === "string" ? p.description : "", badge: typeof p.badge === "string" ? p.badge : undefined,
     badgeBackgroundColor: typeof p.badgeBackgroundColor === "string" && /^#[0-9a-f]{6}$/i.test(p.badgeBackgroundColor) ? p.badgeBackgroundColor : "#2457A7",
     badgeTextColor: typeof p.badgeTextColor === "string" && /^#[0-9a-f]{6}$/i.test(p.badgeTextColor) ? p.badgeTextColor : "#FFFFFF",
@@ -113,5 +114,5 @@ export async function fetchCarouselProducts(baseUrl = "/api", signal?: AbortSign
   if (!response.ok) throw new Error("Não foi possível carregar o carrossel. Tente novamente.");
   const body: unknown = await response.json();
   if (!Array.isArray(body)) throw new Error("Resposta inválida do carrossel.");
-  return body.map(adaptProduct).filter(product => product.inCarousel).sort((a, b) => a.id - b.id).slice(0, 5);
+  return body.map(adaptProduct).filter(product => product.inCarousel).sort((a, b) => (a.carouselPosition ?? 0) - (b.carouselPosition ?? 0) || a.id - b.id).slice(0, 5);
 }

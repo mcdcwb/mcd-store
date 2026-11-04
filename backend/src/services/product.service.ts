@@ -12,7 +12,7 @@ export class ProductError extends Error {
 export const getProducts = () => prisma.product.findMany({ include: productInclude });
 export const getPublicProducts = () => prisma.product.findMany({ where: { isPublished: true }, include: productInclude });
 // Only explicitly selected slides are public here; catalog publication is independent.
-export const getCarouselProducts = () => prisma.product.findMany({ where: { inCarousel: true }, orderBy: { id: "asc" }, take: 5, include: productInclude });
+export const getCarouselProducts = () => prisma.product.findMany({ where: { inCarousel: true }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], take: 5, include: productInclude });
 export const getProductById = (id: number) => prisma.product.findUnique({ where: { id }, include: productInclude });
 export async function ensureInitialCarouselSelection(): Promise<number> {
     return prisma.$transaction(async tx => {
@@ -33,6 +33,9 @@ export async function ensureInitialCarouselSelection(): Promise<number> {
             where: { id: { in: candidates.map(({ id }) => id) }, isPublished: true, inCarousel: false },
             data: { inCarousel: true }
         });
+        const selected = await tx.product.findMany({ where: { inCarousel: true }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], select: { id: true } });
+        for (const [carouselPosition, product] of selected.entries())
+            await tx.product.update({ where: { id: product.id }, data: { carouselPosition } });
         return result.count;
     }, { isolationLevel: "ReadCommitted" });
 }
@@ -44,9 +47,28 @@ export async function setProductCarousel(id: number, inCarousel: boolean) {
         await tx.$queryRaw`SELECT id FROM "Product" WHERE id = ${id} FOR UPDATE`;
         const product = await tx.product.findUnique({ where: { id } });
         if (!product) throw new ProductError(404, "Produto não encontrado.");
-        if (inCarousel && !product.inCarousel && await tx.product.count({ where: { inCarousel: true } }) >= 5)
-            throw new ProductError(409, "Limite de 5 produtos no carrossel.");
-        return tx.product.update({ where: { id }, data: { inCarousel }, include: productInclude });
+        if (inCarousel && product.inCarousel) return tx.product.findUniqueOrThrow({ where: { id }, include: productInclude });
+        if (inCarousel && !product.inCarousel) {
+            const count = await tx.product.count({ where: { inCarousel: true } });
+            if (count >= 5) throw new ProductError(409, "Limite de 5 produtos no carrossel.");
+            return tx.product.update({ where: { id }, data: { inCarousel: true, carouselPosition: count }, include: productInclude });
+        }
+        const updated = await tx.product.update({ where: { id }, data: { inCarousel: false, carouselPosition: 0 }, include: productInclude });
+        const remaining = await tx.product.findMany({ where: { inCarousel: true }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], select: { id: true } });
+        for (const [carouselPosition, selected] of remaining.entries())
+            await tx.product.update({ where: { id: selected.id }, data: { carouselPosition } });
+        return updated;
+    }, { isolationLevel: "ReadCommitted" });
+}
+export async function setCarouselOrder(productIds: number[]) {
+    return prisma.$transaction(async tx => {
+        await lockCarouselSelection(tx);
+        const selected = await tx.product.findMany({ where: { inCarousel: true }, select: { id: true } });
+        if (selected.length !== productIds.length || selected.some(product => !productIds.includes(product.id)))
+            throw new ProductError(409, "A seleÃ§Ã£o do carrossel mudou. Atualize a pÃ¡gina e tente novamente.");
+        for (const [carouselPosition, id] of productIds.entries())
+            await tx.product.update({ where: { id }, data: { carouselPosition } });
+        return tx.product.findMany({ where: { id: { in: productIds } }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], include: productInclude });
     }, { isolationLevel: "ReadCommitted" });
 }
 export async function createProduct(data: z.infer<typeof createProductSchema>) {
@@ -101,4 +123,14 @@ export async function updateProduct(id: number, data: z.infer<typeof updateProdu
         return tx.product.update({ where: { id }, data: { ...product, ...(product.price === undefined ? {} : { price: String(product.price) }) }, include: productInclude });
     });
 }
-export const deleteProduct = (id: number) => prisma.product.delete({ where: { id } });
+export async function deleteProduct(id: number) {
+    return prisma.$transaction(async tx => {
+        await lockCarouselSelection(tx);
+        await tx.$queryRaw`SELECT id FROM "Product" WHERE id = ${id} FOR UPDATE`;
+        const deleted = await tx.product.delete({ where: { id } });
+        const remaining = await tx.product.findMany({ where: { inCarousel: true }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], select: { id: true } });
+        for (const [carouselPosition, product] of remaining.entries())
+            await tx.product.update({ where: { id: product.id }, data: { carouselPosition } });
+        return deleted;
+    }, { isolationLevel: "ReadCommitted" });
+}

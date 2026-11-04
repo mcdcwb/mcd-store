@@ -11,7 +11,7 @@ export interface ProductInput {
   name: string; description: string; price: number; public: string; categoryId: number; isPublished: boolean;
   badge?: string | null; badgeBackgroundColor?: string; badgeTextColor?: string; colors: ColorInput[];
 }
-export interface ManagedProduct extends ProductInput { id: number; inCarousel: boolean; category: string }
+export interface ManagedProduct extends ProductInput { id: number; inCarousel: boolean; carouselPosition: number; category: string }
 export interface ColorDraft {
   key: string; id?: number; colorName: string; colorValue: string; imageUrl: string; images: string;
   variants: { id?: number; value: string; stock: string }[];

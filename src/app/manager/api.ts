@@ -12,7 +12,7 @@ function normalize(value: unknown): ManagedProduct {
   const product = adaptProduct(value);
   const raw = value as Record<string, unknown>;
   return { id: product.id, name: product.name, description: product.description, price: product.price, public: product.public,
-    category: product.category, categoryId: product.categoryId!, isPublished: product.isPublished, badge: product.badge ?? null, badgeBackgroundColor: product.badgeBackgroundColor, badgeTextColor: product.badgeTextColor, inCarousel: product.inCarousel,
+    category: product.category, categoryId: product.categoryId!, isPublished: product.isPublished, badge: product.badge ?? null, badgeBackgroundColor: product.badgeBackgroundColor, badgeTextColor: product.badgeTextColor, inCarousel: product.inCarousel, carouselPosition: product.carouselPosition ?? 0,
     colors: (raw.colors as Array<Record<string, unknown>>).map((color, i) => ({
       ...product.colors[i], imageUrl: typeof color.imageUrl === "string" ? color.imageUrl : "", images: color.images as string[]
     }))
@@ -96,6 +96,11 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
     },
     async save(input: ProductInput, id?: number) { return normalize(await request(id === undefined ? "" : `/${id}`, id === undefined ? "POST" : "PUT", input)); },
     async remove(id: number) { await request(`/${id}`, "DELETE"); },
-    async setCarousel(id: number, inCarousel: boolean) { return normalize(await request(`/${id}/carrossel`, "PATCH", { inCarousel })); }
+    async setCarousel(id: number, inCarousel: boolean) { return normalize(await request(`/${id}/carrossel`, "PATCH", { inCarousel })); },
+    async setCarouselOrder(productIds: number[]) {
+      const data = await request("/carrossel/ordem", "PATCH", { productIds });
+      if (!Array.isArray(data)) throw new ManagerApiError(0, "Resposta invÃ¡lida da ordem do carrossel.");
+      return data.map(normalize);
+    }
   };
 }

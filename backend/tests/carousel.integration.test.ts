@@ -45,13 +45,30 @@ test("carousel persists, authorizes ADMIN and enforces five even with concurrent
     assert.equal((await server.request(path(id), "PATCH", { inCarousel: true }, admin)).status, 200);
     const publicProducts = await (await server.request("/produtos")).json();
     assert.equal(publicProducts.find((p: any) => p.id === id).inCarousel, true);
+    const selectedInOrder = await prisma.product.findMany({ where: { inCarousel: true }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], select: { id: true } });
+    const reorderedIds = selectedInOrder.map(product => product.id).reverse();
+    for (const [token, status] of [[undefined, 401], [user, 403]] as const)
+      assert.equal((await server.request("/produtos/carrossel/ordem", "PATCH", { productIds: reorderedIds }, token)).status, status);
+    const reorderResponse = await server.request("/produtos/carrossel/ordem", "PATCH", { productIds: reorderedIds }, admin);
+    assert.equal(reorderResponse.status, 200);
+    assert.deepEqual((await reorderResponse.json()).map((product: any) => product.id), reorderedIds);
+    assert.deepEqual(await prisma.product.findMany({ where: { inCarousel: true }, orderBy: { carouselPosition: "asc" }, select: { id: true } }).then(items => items.map(product => product.id)), reorderedIds);
+    assert.deepEqual(await server.request("/produtos/carrossel").then(response => response.json()).then((items: any[]) => items.map(product => product.id)), reorderedIds);
+    assert.equal((await server.request("/produtos/carrossel/ordem", "PATCH", { productIds: reorderedIds.slice(1) }, admin)).status, 409);
+    assert.equal((await server.request("/produtos/carrossel/ordem", "PATCH", { productIds: [...reorderedIds, reorderedIds[0]] }, admin)).status, 400);
     assert.equal((await server.request(path(id), "PATCH", { inCarousel: false }, admin)).status, 200);
     assert.equal((await prisma.product.findUniqueOrThrow({ where: { id } })).inCarousel, false);
+    const compacted = await prisma.product.findMany({ where: { inCarousel: true }, orderBy: { carouselPosition: "asc" }, select: { id: true, carouselPosition: true } });
+    assert.deepEqual(compacted.map(product => product.carouselPosition), compacted.map((_, index) => index));
     assert.equal((await server.request(path(id), "PATCH", { inCarousel: true }, admin)).status, 200);
+    const appended = await prisma.product.findUniqueOrThrow({ where: { id } });
+    assert.equal(appended.carouselPosition, compacted.length);
     const after = await prisma.product.findUniqueOrThrow({ where: { id: ids[0] }, include: { colors: { include: { variants: true } } } });
     assert.deepEqual(after.colors, before.colors);
     assert.equal((await server.request(`/produtos/${id}`, "DELETE", undefined, admin)).status, 200);
     assert.equal(await prisma.product.count({ where: { inCarousel: true } }), 4);
+    const afterDelete = await prisma.product.findMany({ where: { inCarousel: true }, orderBy: { carouselPosition: "asc" }, select: { carouselPosition: true } });
+    assert.deepEqual(afterDelete.map(product => product.carouselPosition), [0, 1, 2, 3]);
     const unselected = await prisma.product.findFirstOrThrow({ where: { id: { in: ids }, inCarousel: false } });
     assert.equal((await server.request(path(unselected.id), "PATCH", { inCarousel: true }, admin)).status, 200);
   } finally {

@@ -1,7 +1,7 @@
 import type { Category } from "../lib/categories";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { GalleryHorizontalEnd, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, GalleryHorizontalEnd, GripVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { ProductImage } from "../components/ProductImage";
 import { Button } from "../components/ui/button";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "../components/ui/alert-dialog";
@@ -12,13 +12,39 @@ export function StockBadge({ product }: { product: ManagedProduct }) {
   const label = getProductVariants(product).length === 0 ? "Sem variantes" : empty ? "Sem estoque" : "Disponível";
   return <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${empty ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>{label}</span>;
 }
-export function ProductList({ categories, threshold, products, busy, error, onDelete, onCarousel }: { categories: Category[]; threshold: number; products: ManagedProduct[]; busy: boolean; error: string | null; onDelete: (id: number) => Promise<boolean>; onCarousel: (id: number, selected: boolean) => Promise<boolean> }) {
+export function ProductList({ categories, threshold, products, busy, error, onDelete, onCarousel, onCarouselOrder }: { categories: Category[]; threshold: number; products: ManagedProduct[]; busy: boolean; error: string | null; onDelete: (id: number) => Promise<boolean>; onCarousel: (id: number, selected: boolean) => Promise<boolean>; onCarouselOrder: (productIds: number[]) => Promise<boolean> }) {
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(() => params.get("categoria") ?? "");
   const [audience, setAudience] = useState("");
   const [onlyCarousel, setOnlyCarousel] = useState(false);
   const [publication, setPublication] = useState("");
+  const carouselProducts = products.filter(product => product.inCarousel).sort((a, b) => a.carouselPosition - b.carouselPosition || a.id - b.id);
+  const carouselSignature = carouselProducts.map(product => `${product.id}:${product.carouselPosition}`).join(",");
+  const savedIds = carouselProducts.map(product => product.id);
+  const [draftOrder, setDraftOrder] = useState<number[]>(savedIds);
+  const [savedOrder, setSavedOrder] = useState(savedIds.join(","));
+  const draggedId = useRef<number | null>(null);
+  useEffect(() => {
+    setDraftOrder(savedIds);
+    setSavedOrder(savedIds.join(","));
+  // The signature captures membership and persisted order changes from the server.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carouselSignature]);
+  function moveCarouselItem(fromId: number, toId: number) {
+    if (fromId === toId) return;
+    setDraftOrder(current => {
+      const from = current.indexOf(fromId), to = current.indexOf(toId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      next.splice(from, 1);
+      next.splice(to, 0, fromId);
+      return next;
+    });
+  }
+  const currentDraft = draftOrder.filter(id => savedIds.includes(id));
+  const displayedOrder = [...currentDraft, ...savedIds.filter(id => !currentDraft.includes(id))];
+  const hasOrderChanges = displayedOrder.join(",") !== savedOrder;
   useEffect(() => { if (category && !categories.some(c => String(c.id) === category)) setCategoryFilter(""); }, [categories, category]);
   useEffect(() => { const nextCategory = params.get("categoria") ?? ""; if (nextCategory !== category) setCategory(nextCategory); }, [params, category]);
   function setCategoryFilter(value: string) {
@@ -53,6 +79,47 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
       <div><h1 className="font-serif text-3xl font-bold">Produtos</h1><p className="text-muted-foreground mt-1">Gerencie as peças e a disponibilidade da loja.</p></div>
       <Button asChild className="h-auto min-h-11 rounded-lg px-4 py-2.5 font-semibold"><Link to="/manager/produtos/novo"><Plus size={18} />Novo produto</Link></Button>
     </div>
+    {carouselProducts.length > 0 && <section aria-labelledby="carousel-order-title" className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h2 id="carousel-order-title" className="text-lg font-semibold">Ordem do carrossel</h2><p className="mt-1 text-sm text-muted-foreground">Arraste os produtos para reorganizar. Use os botÃµes de seta para ajustar a posiÃ§Ã£o.</p></div>
+        {hasOrderChanges && <Button type="button" disabled={busy} onClick={async () => {
+          if (await onCarouselOrder(displayedOrder)) setSavedOrder(displayedOrder.join(","));
+        }}>Salvar ordem</Button>}
+      </div>
+      <ol className="mt-4 space-y-2">
+        {displayedOrder.map((id, index) => {
+          const product = carouselProducts.find(item => item.id === id);
+          if (!product) return null;
+          return <li key={product.id} data-carousel-item={product.id} draggable onDragStart={event => {
+            draggedId.current = product.id;
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", String(product.id));
+          }} onDragOver={event => {
+            event.preventDefault();
+            if (draggedId.current !== null) moveCarouselItem(draggedId.current, product.id);
+          }} onDrop={event => { event.preventDefault(); draggedId.current = null; }} onDragEnd={() => { draggedId.current = null; }}
+            className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-background p-2.5">
+            <span aria-label={`PosiÃ§Ã£o ${index + 1}`} className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{index + 1}</span>
+            <span aria-label="Arraste para reordenar" className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing" onPointerDown={event => {
+              if (event.pointerType === "touch") { draggedId.current = product.id; event.currentTarget.setPointerCapture(event.pointerId); }
+            }} onPointerMove={event => {
+              if (event.pointerType !== "touch" || draggedId.current === null) return;
+              const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-carousel-item]");
+              const targetId = Number(target?.dataset.carouselItem);
+              if (Number.isSafeInteger(targetId)) moveCarouselItem(draggedId.current, targetId);
+            }} onPointerUp={() => { draggedId.current = null; }} onPointerCancel={() => { draggedId.current = null; }}>
+              <GripVertical aria-hidden="true" size={18} />
+            </span>
+            <ProductImage src={product.colors[0]?.imageUrl || product.colors[0]?.images[0]} alt="" className="h-12 w-10 shrink-0 rounded object-cover bg-muted" />
+            <span className="min-w-0 flex-1 break-words text-sm font-medium">{product.name}</span>
+            <div className="flex shrink-0 gap-1">
+              <button type="button" aria-label={`Mover ${product.name} para cima`} disabled={busy || index === 0} onClick={() => moveCarouselItem(product.id, displayedOrder[index - 1]!)} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowUp size={16} /></button>
+              <button type="button" aria-label={`Mover ${product.name} para baixo`} disabled={busy || index === displayedOrder.length - 1} onClick={() => moveCarouselItem(product.id, displayedOrder[index + 1]!)} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowDown size={16} /></button>
+            </div>
+          </li>;
+        })}
+      </ol>
+    </section>}
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 rounded-xl border border-border bg-card p-4 mb-5">
       <label className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2"><Search size={14} />Buscar por nome</span><input type="search" value={search} onChange={event => setSearch(event.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2" placeholder="Nome do produto" /></label>
       <label className="flex flex-col gap-2 text-sm"><span>Categoria</span><select aria-label="Categoria" value={category} onChange={event => setCategoryFilter(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Todas as categorias</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>

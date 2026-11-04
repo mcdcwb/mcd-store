@@ -4,6 +4,7 @@ import { Prisma } from "../generated/prisma/client.js";
 import {
     createProductSchema,
     carouselSchema,
+    carouselOrderSchema,
     updateProductSchema
 } from "../schemas/product.schema.js";
 
@@ -14,6 +15,17 @@ export async function setProductCarousel(req: Request, res: Response, next: Next
     if (!result.success) return res.status(400).json({ error: "Informe se o produto pertence ao carrossel." });
     try {
         return res.json(await productService.setProductCarousel(id, result.data.inCarousel));
+    } catch (error) {
+        if (error instanceof productService.ProductError) return res.status(error.status).json({ error: error.message });
+        return next(error);
+    }
+}
+
+export async function setCarouselOrder(req: Request, res: Response, next: NextFunction) {
+    const result = carouselOrderSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: "Informe a sequÃªncia vÃ¡lida dos produtos do carrossel.", errors: result.error.issues });
+    try {
+        return res.json(await productService.setCarouselOrder(result.data.productIds));
     } catch (error) {
         if (error instanceof productService.ProductError) return res.status(error.status).json({ error: error.message });
         return next(error);

@@ -38,6 +38,7 @@ model Product {
   badgeTextColor String @default("#FFFFFF")
   badge       String?
   inCarousel  Boolean @default(false)
+  carouselPosition Int @default(0)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
