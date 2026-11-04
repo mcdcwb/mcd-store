@@ -57,7 +57,14 @@ export function StoreFooter({
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} MCD Store — por{" "}<a href="https://luan-machado.vercel.app/" target="_blank" rel="noopener noreferrer">Luan Machado</a>.
+          © {new Date().getFullYear()} MCD Store — por{" "}<a
+            href="https://luan-machado.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Luan Machado
+          </a>.
         </div>
       </div>
     </footer>
