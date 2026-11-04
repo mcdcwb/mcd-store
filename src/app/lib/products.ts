@@ -30,8 +30,10 @@ export const productImagePlaceholder = "data:image/svg+xml," + encodeURIComponen
 export function selectProductColor(product: Product, colorId: number): Product {
   const color = product.colors.find(c => c.id === colorId);
   if (!color) throw new Error("Cor indisponível.");
-  return { ...product, colorId: color.id, color: { name: color.colorName, value: color.colorValue },
-    images: color.images, imageUrl: color.imageUrl, variants: color.variants, sizes: color.variants.map(v => v.value) };
+  return {
+    ...product, colorId: color.id, color: { name: color.colorName, value: color.colorValue },
+    images: color.images, imageUrl: color.imageUrl, variants: color.variants, sizes: color.variants.map(v => v.value)
+  };
 }
 export function adaptProduct(value: unknown): Product {
   if (!value || typeof value !== "object") throw new Error("Produto inválido.");
@@ -42,14 +44,14 @@ export function adaptProduct(value: unknown): Product {
   if (category && (!Number.isSafeInteger(categoryId) || Number(categoryId) <= 0 || typeof categoryName !== "string")) throw new Error("Categoria inválida.");
   const price = typeof p.price === "string" && p.price.trim() ? Number(p.price) : p.price;
   if (!Number.isSafeInteger(p.id) || Number(p.id) <= 0 || typeof p.name !== "string" ||
-      typeof price !== "number" || !Number.isFinite(price) || price <= 0 ||
-      typeof p.public !== "string" || typeof categoryName !== "string" || !Array.isArray(p.colors) || !p.colors.length)
+    typeof price !== "number" || !Number.isFinite(price) || price <= 0 ||
+    typeof p.public !== "string" || typeof categoryName !== "string" || !Array.isArray(p.colors) || !p.colors.length)
     throw new Error("Produto inválido.");
   const colors: ProductColor[] = p.colors.map((raw: unknown) => {
     if (!raw || typeof raw !== "object") throw new Error("Cor inválida.");
     const c = raw as Record<string, unknown>;
     if (!Number.isSafeInteger(c.id) || Number(c.id) <= 0 || typeof c.colorName !== "string" || typeof c.colorValue !== "string" ||
-        !Array.isArray(c.variants) || !Array.isArray(c.images) || !c.images.every(i => typeof i === "string")) throw new Error("Cor inválida.");
+      !Array.isArray(c.variants) || !Array.isArray(c.images) || !c.images.every(i => typeof i === "string")) throw new Error("Cor inválida.");
     const variants = c.variants.map((raw: unknown) => {
       if (!raw || typeof raw !== "object") throw new Error("Variante inválida.");
       const v = raw as Record<string, unknown>;
@@ -63,12 +65,14 @@ export function adaptProduct(value: unknown): Product {
   });
   if (new Set(colors.map(c => c.id)).size !== colors.length) throw new Error("Cor duplicada.");
   const first = colors[0];
-  return { id: p.id as number, name: p.name, price, public: p.public, category: categoryName, categoryId: categoryId as number | undefined, isPublished: p.isPublished !== false, inCarousel: p.inCarousel === true,
+  return {
+    id: p.id as number, name: p.name, price, public: p.public, category: categoryName, categoryId: categoryId as number | undefined, isPublished: p.isPublished !== false, inCarousel: p.inCarousel === true,
     description: typeof p.description === "string" ? p.description : "", badge: typeof p.badge === "string" ? p.badge : undefined,
     badgeBackgroundColor: typeof p.badgeBackgroundColor === "string" && /^#[0-9a-f]{6}$/i.test(p.badgeBackgroundColor) ? p.badgeBackgroundColor : "#2457A7",
     badgeTextColor: typeof p.badgeTextColor === "string" && /^#[0-9a-f]{6}$/i.test(p.badgeTextColor) ? p.badgeTextColor : "#FFFFFF",
     colors, colorId: first.id, color: { name: first.colorName, value: first.colorValue }, images: first.images, imageUrl: first.imageUrl,
-    variants: first.variants, sizes: first.variants.map(v => v.value) };
+    variants: first.variants, sizes: first.variants.map(v => v.value)
+  };
 }
 
 export const stockFor = (product: Product, size: string) => product.variants.find(v => v.value === size)?.stock ?? 0;
@@ -98,7 +102,7 @@ export function catalogCategories(products: Product[], options?: readonly { valu
 
 export async function fetchProducts(baseUrl = "/api", signal?: AbortSignal): Promise<Product[]> {
   const response = await fetch(baseUrl.replace(/\/$/, "") + "/produtos", { signal, cache: "no-store" });
-  if (!response.ok) throw new Error("Não foi possível carregar os produtos. Tente novamente.");
+  if (!response.ok) throw new Error("Estamos preparando a loja, isso pode levar até 1 minuto na primeira visita.");
   const body: unknown = await response.json();
   if (!Array.isArray(body)) throw new Error("Resposta inválida do catálogo.");
   return body.map(adaptProduct).filter(product => product.isPublished);

@@ -20,7 +20,7 @@ export function useProducts(load = fetchProducts) {
     setError(null);
     load(import.meta.env.VITE_API_URL || "/api", controller.signal)
       .then(data => { if (active) setProducts(data); })
-      .catch(() => { if (active) setError("Não foi possível carregar os produtos. Tente novamente."); })
+      .catch(() => { if (active) setError("Estamos preparando a loja, isso pode levar até 1 minuto na primeira visita."); })
       .finally(() => { window.clearTimeout(timeout); if (active) setLoading(false); });
     return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
   }, [attempt, load]);
