@@ -1,0 +1,46 @@
+{
+  "name": "mcd-store-backend",
+  "description": "Backend da demonstração MCD Store",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/scripts/start-dev.ts",
+    "build": "prisma generate && tsc",
+    "start": "node dist/server.js",
+    "test": "node tests/helpers/run-isolated.mjs",
+    "admin:create": "tsx src/scripts/create-admin.ts",
+    "db:seed": "prisma db seed",
+    "admin:create:demo": "tsx src/scripts/create-demo-admin.ts",
+    "db:seed:demo:production": "tsx src/scripts/seed-demo-production.ts"
+  },
+  "keywords": [],
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "argon2": "^0.45.1",
+    "cloudinary": "^2.11.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jose": "^6.2.12",
+    "multer": "^2.4.0",
+    "pg": "^8.23.0",
+    "prisma": "^7.10.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.2.0",
+    "@types/pg": "^8.21.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.1": true,
+    "argon2@0.45.1": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.1": true
+  }
+}

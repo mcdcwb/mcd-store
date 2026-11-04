@@ -1,0 +1,13 @@
+@import "tailwindcss" source(none);
+@source "../**/*.{js,ts,jsx,tsx}";
+
+@import "tw-animate-css";
+
+@theme {
+    --font-cloister: Georgia, "Times New Roman", serif;
+    --font-display: "Oswald", Impact, sans-serif;
+}
+
+html {
+    scroll-behavior: smooth;
+}

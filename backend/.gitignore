@@ -1,0 +1,12 @@
+node_modules/
+/backend/desktop.ini
+
+.env
+.env.*
+!.env.example
+
+/src/generated/prisma
+
+/.agents/
+/.claude/
+/.windsurf/

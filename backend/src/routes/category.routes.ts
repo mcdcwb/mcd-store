@@ -1,0 +1,11 @@
+import { Router } from "express";
+import { requireAdmin } from "../middlewares/require-admin.js";
+import { listAvailableCategories, listCategories, saveCategory, deleteCategory } from "../controllers/category.controller.js";
+const router = Router();
+router.get("/disponiveis", listAvailableCategories);
+router.use(requireAdmin);
+router.get("/", listCategories);
+router.post("/", saveCategory);
+router.put("/:id", saveCategory);
+router.delete("/:id", deleteCategory);
+export default router;

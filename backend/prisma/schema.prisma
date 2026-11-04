@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model StoreSettings {
+  id                Int @id @default(1)
+  lowStockThreshold Int @default(5)
+  showLowStockBadge Boolean @default(true)
+  showLastUnitBadge Boolean @default(true)
+  storeCep          String?
+  storeStreet       String?
+  storeNumber       String?
+  storeComplement   String?
+  storeNeighborhood String?
+  storeCity         String?
+  storeState        String?
+  businessHours     Json @default("{\"MONDAY\":{\"isOpen\":true,\"openingTime\":\"09:00\",\"closingTime\":\"18:00\"},\"TUESDAY\":{\"isOpen\":true,\"openingTime\":\"09:00\",\"closingTime\":\"18:00\"},\"WEDNESDAY\":{\"isOpen\":true,\"openingTime\":\"09:00\",\"closingTime\":\"18:00\"},\"THURSDAY\":{\"isOpen\":true,\"openingTime\":\"09:00\",\"closingTime\":\"18:00\"},\"FRIDAY\":{\"isOpen\":true,\"openingTime\":\"09:00\",\"closingTime\":\"18:00\"},\"SATURDAY\":{\"isOpen\":true,\"openingTime\":\"10:00\",\"closingTime\":\"15:00\"},\"SUNDAY\":{\"isOpen\":false,\"openingTime\":null,\"closingTime\":null}}")
+  whatsapp          String?
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Decimal
+
+  public      String
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  isPublished Boolean @default(true)
+
+  badgeBackgroundColor String @default("#2457A7")
+  badgeTextColor String @default("#FFFFFF")
+  badge       String?
+  inCarousel  Boolean @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  colors ProductColor[]
+  favorites Favorite[]
+  adminFavorites AdminFavorite[]
+  @@index([categoryId])
+}
+
+model Category {
+  id             Int @id @default(autoincrement())
+  name           String
+  normalizedName String @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  products       Product[]
+}
+
+model ProductColor {
+  id Int @id @default(autoincrement())
+  productId Int
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colorName String
+  colorValue String
+  imageUrl String?
+  images String[]
+  position Int @default(0)
+  variants ProductVariant[]
+  @@index([productId])
+}
+
+model ProductVariant {
+  id Int @id @default(autoincrement())
+  value String
+  stock Int @default(0)
+  colorId Int
+  color ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+  orderItems OrderItem[]
+  @@unique([colorId, value])
+}
+
+model Admin {
+  favorites AdminFavorite[]
+  id Int @id @default(autoincrement())
+  email String @unique
+  passwordHash String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  address UserAddress?
+  phone String?
+  favorites Favorite[]
+  cartItems CartItem[]
+  orders Order[]
+  id Int @id @default(autoincrement())
+  name String
+  email String @unique
+  passwordHash String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserAddress {
+  userId Int @id
+  cep String
+  street String
+  number String
+  complement String @default("")
+  neighborhood String
+  city String
+  state String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  userId Int
+  productId Int
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@id([userId, productId])
+  @@index([productId])
+}
+
+model AdminFavorite {
+  adminId Int
+  productId Int
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@id([adminId, productId])
+  @@index([productId])
+}
+
+model CartItem {
+  userId Int
+  variantId Int
+  quantity Int
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  @@id([userId, variantId])
+  @@index([variantId])
+}
+
+
+enum OrderStatus {
+  PENDING_CONFIRMATION
+  PREPARING
+  READY_OR_SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum FulfillmentMethod {
+  DELIVERY
+  PICKUP
+}
+
+model OrderCounter {
+  id Int @id @default(1)
+  value Int @default(0)
+}
+
+model Order {
+  id Int @id @default(autoincrement())
+  number String @unique
+  sequence Int @unique
+  userId Int
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status OrderStatus @default(PENDING_CONFIRMATION)
+  fulfillmentMethod FulfillmentMethod
+  customerName String
+  customerPhone String?
+  deliveryAddress Json?
+  pickupAddress Json?
+  total Decimal @db.Decimal(18, 2)
+  idempotencyKey String
+  requestHash String
+  whatsappUrl String
+  whatsappMessage String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  archivedAt DateTime?
+  items OrderItem[]
+  statusEvents OrderStatusEvent[]
+  @@unique([userId, idempotencyKey])
+  @@index([status, createdAt])
+}
+
+model OrderStatusEvent {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status OrderStatus
+  createdAt DateTime @default(now())
+  @@index([orderId, createdAt])
+}
+
+model OrderItem {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId Int?
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  originalVariantId Int
+  productName String
+  colorName String
+  size String
+  quantity Int
+  unitPrice Decimal @db.Decimal(18, 2)
+  subtotal Decimal @db.Decimal(18, 2)
+  @@index([orderId])
+  @@index([variantId])
+}

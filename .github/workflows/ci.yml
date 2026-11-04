@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  backend:
+    name: Backend and browser tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: mcd_store_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mcd_store_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:ci_only_password@127.0.0.1:5432/mcd_store_ci?schema=public
+      JWT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+      - name: Install frontend dependencies for browser tests
+        run: npm ci
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Compile backend and verify TypeScript
+        working-directory: backend
+        run: npm run build
+      - name: Typecheck frontend with generated Prisma types
+        working-directory: .
+        run: npm run typecheck
+      - name: Frontend unit tests after Prisma generation
+        working-directory: .
+        run: npm test
+      - name: Backend tests on isolated PostgreSQL database
+        working-directory: backend
+        env:
+          MCD_ALLOW_LOCAL_TEST_DATABASE_CREATE_DROP: "1"
+        run: npm test
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Browser tests on isolated PostgreSQL database
+        working-directory: backend
+        env:
+          MCD_ALLOW_LOCAL_TEST_DATABASE_CREATE_DROP: "1"
+        run: node tests/helpers/run-isolated.mjs browser
