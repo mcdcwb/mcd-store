@@ -51,7 +51,20 @@ export default function App() {
   const { products: carouselProducts, retry: retryCarousel } = useProducts(fetchCarouselProducts);
   const allSizes = catalogSizes(products);
   const mobileSizesRef = useRef<HTMLDivElement>(null);
+  const [sizeScroll, setSizeScroll] = useState({ left: false, right: false });
   const availableCategories = useMemo(() => catalogCategories(products), [products]);
+  useEffect(() => {
+    const element = mobileSizesRef.current;
+    if (!element) return;
+    const update = () => {
+      setSizeScroll({ left: element.scrollLeft > 0, right: element.scrollLeft + element.clientWidth < element.scrollWidth - 1 });
+    };
+    update();
+    element.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => { element.removeEventListener("scroll", update); observer.disconnect(); };
+  }, [allSizes.length]);
   const location = useLocation();
   const navigate = useNavigate();
   const accountPath = location.pathname.replace(/\/$/, "");
@@ -423,10 +436,12 @@ export default function App() {
               </button>
               <a href="/#contato" onClick={event => { event.preventDefault(); setMobileMenuOpen(false); navigate("/#contato"); }} className="block rounded-lg px-3 py-3 text-[15px] font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">Contato</a>
               <div className="mx-3 my-2 border-t border-border" />
-              {availableCategories.length >= 2 && <div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <div className={availableCategories.length < 2 ? "hidden" : ""}>
+              <div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Categorias
-              </div>}
-              {availableCategories.length >= 2 && <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} />}
+              </div>
+              <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} />
+              </div>
               <div className="hidden"><div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">Público</div>
                 <FilterOptions options={PUBLICS} value={activePublic} allValue="todos" onChange={value => selectPublic(value ?? "todos")} />
               </div>
@@ -598,9 +613,9 @@ export default function App() {
                 <FilterSection title="Público">
                   <FilterOptions options={PUBLICS} value={activePublic} allValue="todos" onChange={value => selectPublic(value ?? "todos")} />
                 </FilterSection>
-                {availableCategories.length >= 2 && <FilterSection title="Categoria">
+                <div className={availableCategories.length < 2 ? "hidden" : ""}><FilterSection title="Categoria">
                   <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} />
-                </FilterSection>}
+                </FilterSection></div>
               </div>
             </aside>
 
@@ -644,9 +659,12 @@ export default function App() {
 
                 {/* Mobile size filter */}
                 <div role="group" aria-label="Filtrar por tamanho" className="lg:hidden flex min-w-0 w-full items-center gap-1">
-                  <button type="button" aria-label="Rolar tamanhos para a esquerda" onClick={() => mobileSizesRef.current?.scrollBy({ left: -140, behavior: "smooth" })}
-                    className="shrink-0 rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted"><ChevronLeft className="size-4" /></button>
-                  <div ref={mobileSizesRef} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain scroll-smooth" style={{ scrollbarWidth: "none", touchAction: "pan-x" }}>
+                  <button type="button" aria-label="Rolar tamanhos para a esquerda" disabled={!sizeScroll.left} onClick={() => mobileSizesRef.current?.scrollBy({ left: -140, behavior: "smooth" })}
+                    className="shrink-0 rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-30"><ChevronLeft className="size-4" /></button>
+                  <div ref={mobileSizesRef} onScroll={event => {
+                    const element = event.currentTarget;
+                    setSizeScroll({ left: element.scrollLeft > 0, right: element.scrollLeft + element.clientWidth < element.scrollWidth - 1 });
+                  }} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain scroll-smooth" style={{ scrollbarWidth: "none", touchAction: "pan-x" }}>
                   {allSizes.map((size) => (
                     <button
                       key={size}
@@ -661,8 +679,8 @@ export default function App() {
                     </button>
                   ))}
                   </div>
-                  <button type="button" aria-label="Rolar tamanhos para a direita" onClick={() => mobileSizesRef.current?.scrollBy({ left: 140, behavior: "smooth" })}
-                    className="shrink-0 rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted"><ChevronRight className="size-4" /></button>
+                  <button type="button" aria-label="Rolar tamanhos para a direita" disabled={!sizeScroll.right} onClick={() => mobileSizesRef.current?.scrollBy({ left: 140, behavior: "smooth" })}
+                    className="shrink-0 rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-30"><ChevronRight className="size-4" /></button>
                 </div>
               </div>
 

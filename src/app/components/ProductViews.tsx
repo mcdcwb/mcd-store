@@ -130,12 +130,13 @@ export function ProductDetailPage({
                     title={stockFor(product, size) === 0 ? "Esgotado" : undefined}
                     type="button"
                     onClick={() => setSelectedSize((current) => (current === size ? null : size))}
-                    className={`${sizeButtonClass} disabled:opacity-40 disabled:cursor-not-allowed border text-sm font-medium transition-all ${selectedSize === size
+                    className={`${sizeButtonClass} relative overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed border text-sm font-medium transition-all ${selectedSize === size
                       ? "bg-primary text-primary-foreground border-primary"
                       : "border-border hover:border-primary/40 hover:bg-muted"
                       }`}
                   >
                     {size}
+                    {availableStock(product, size) <= 0 && <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 h-px w-[130%] -translate-x-1/2 -translate-y-1/2 rotate-[-45deg] bg-foreground/80" />}
                   </button>
                 ))}
               </div>
@@ -325,12 +326,13 @@ export function ProductCard({
               disabled={availableStock(product, size) <= 0}
               title={stockFor(product, size) === 0 ? "Esgotado" : undefined}
               onClick={() => setSelectedSize((s) => (s === size ? null : size))}
-              className={`store-product-size ${sizeButtonClass} min-h-11 min-w-11 disabled:opacity-40 disabled:cursor-not-allowed text-xs border font-medium transition-all rounded-none ${selectedSize === size
+              className={`store-product-size ${sizeButtonClass} relative overflow-hidden min-h-11 min-w-11 disabled:opacity-40 disabled:cursor-not-allowed text-xs border font-medium transition-all rounded-none ${selectedSize === size
                 ? "bg-primary text-primary-foreground border-primary"
                 : "border-border hover:border-primary/40 hover:bg-muted"
                 }`}
             >
               {size}
+              {availableStock(product, size) <= 0 && <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 h-px w-[130%] -translate-x-1/2 -translate-y-1/2 rotate-[-45deg] bg-foreground/80" />}
             </button>
           ))}
         </div>}
