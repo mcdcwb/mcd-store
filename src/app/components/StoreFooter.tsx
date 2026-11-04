@@ -57,7 +57,7 @@ export function StoreFooter({
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} MCD Store — Projeto demonstrativo.
+          © {new Date().getFullYear()} MCD Store — por Luan Machado.
         </div>
       </div>
     </footer>
