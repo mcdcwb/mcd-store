@@ -26,7 +26,7 @@ export function AccountMenu({ name, role, onLogout }: { name: string; role: "USE
       }}>
       <button ref={trigger} type="button" aria-expanded={open} aria-controls={id}
         onClick={() => setOpen(value => !value)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-ee-xs border border-white bg-muted text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">
+        className="flex items-center gap-1.5 px-3 py-2 rounded-[3px] border border-white bg-muted text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">
         <User aria-hidden="true" className="w-3.5 h-3.5 shrink-0" />
         <span className="sr-only sm:not-sr-only text-[15px] font-medium max-w-40 truncate">{name.trim().split(/\s+/)[0]}</span>
       </button>
