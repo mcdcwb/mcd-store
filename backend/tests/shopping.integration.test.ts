@@ -14,7 +14,7 @@ test("account shopping persists, isolates users and enforces stock in PostgreSQL
     const server = await startTestServer(createApp());
     const prefix = randomUUID();
     const emails = ["a", "b", "admin"].map(v => `${v}-${prefix}@example.test`);
-    const password = "test-" + prefix;
+    const password = "TestPasswordA1-" + prefix;
     let productId: number | undefined;
     try {
         await createUser({ name: "User A", email: emails[0], password });

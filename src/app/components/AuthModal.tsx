@@ -108,7 +108,7 @@ export function AuthModal({
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-3">
+          <form noValidate onSubmit={handleSubmit} className="px-6 pb-6 space-y-3">
             {mode === "register" && (
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -122,8 +122,8 @@ export function AuthModal({
                   maxLength={100}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Maria Silva"
-                  className="w-full px-3.5 py-2.5 rounded-xl text-auth-input bg-input-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
+                  placeholder="'Maria Silva'"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-input-background text-foreground font-medium placeholder:text-muted-foreground/30 placeholder:italic autofill:[-webkit-text-fill-color:var(--foreground)] autofill:[-webkit-box-shadow:0_0_0_1000px_var(--input-background)_inset] border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
                   required
                 />
               </div>
@@ -139,8 +139,8 @@ export function AuthModal({
                 maxLength={254}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                className="w-full px-3.5 py-2.5 rounded-xl text-auth-input bg-input-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
+                placeholder="'seu@email.com'"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-input-background text-foreground font-medium placeholder:text-muted-foreground/30 placeholder:italic autofill:[-webkit-text-fill-color:var(--foreground)] autofill:[-webkit-box-shadow:0_0_0_1000px_var(--input-background)_inset] border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
                 required
               />
             </div>
@@ -153,14 +153,18 @@ export function AuthModal({
                 type="password"
                 aria-label="Senha"
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
-                minLength={mode === "login" ? 1 : 5}
                 maxLength={128}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl text-auth-input bg-input-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
+                placeholder={mode === "login" ? "Digite sua senha" : "Crie uma senha"}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-input-background text-foreground font-medium placeholder:text-muted-foreground/30 autofill:[-webkit-text-fill-color:var(--foreground)] autofill:[-webkit-box-shadow:0_0_0_1000px_var(--input-background)_inset] border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
                 required
               />
+              {mode === "register" && <ul className="mt-1 text-xs text-muted-foreground/80">
+                <li>Mínimo de 6 caracteres</li>
+                <li>Pelo menos 1 letra maiúscula</li>
+                <li>Pelo menos 1 número</li>
+              </ul>}
             </div>
 
             {(error || sessionError) && (
@@ -179,11 +183,11 @@ export function AuthModal({
             </button>
 
             <p className="text-center text-xs text-muted-foreground pt-1">
-              {mode === "login" ? "Ainda não tem conta?" : "Já tem conta?"}{" "}
+              {mode === "login" ? "Ainda não tem conta?" : "Já tem conta?"}
               <button
                 type="button"
                 onClick={() => { setError(""); setSuccess(""); onSwitchMode(); }}
-                className="text-primary font-medium underline underline-offset-2 hover:opacity-80"
+                className="ml-2 text-primary font-medium underline underline-offset-2 hover:opacity-80"
               >
                 {mode === "login" ? "Cadastre-se" : "Entrar"}
               </button>

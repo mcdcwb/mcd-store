@@ -20,7 +20,7 @@ test("global settings default, validation, ADMIN authorization and persistence i
   const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();
   const isolated = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }, { schema }) });
-  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = randomUUID();
+  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = "TestPasswordA1-" + randomUUID();
   const server = await startTestServer(createApp({ settingsDatabase: isolated }));
   const original = await prisma.storeSettings.findUniqueOrThrow({ where: { id: 1 } });
   try {

@@ -8,6 +8,7 @@ import { getJwtKey } from "../src/config/auth.js";
 import { prisma } from "../src/lib/prisma.js";
 import { createAdmin } from "../src/services/admin.service.js";
 import { startTestServer } from "./helpers/http.js";
+import { loginSchema, registerSchema } from "../src/schemas/auth.schema.js";
 
 process.env.JWT_SECRET = randomBytes(32).toString("hex");
 
@@ -18,9 +19,20 @@ test("JWT configuration rejects missing or malformed secrets", () => {
     assert.equal(getJwtKey({ JWT_SECRET: "ab".repeat(32) }).length, 32);
 });
 
+test("registration enforces the new password requirements while login accepts legacy passwords", () => {
+    const registration = (password: string) => registerSchema.safeParse({ name: "Cliente", email: "cliente@example.test", password }).success;
+    assert.equal(registration("Abcde1"), true);
+    assert.equal(registration("Abc1"), false);
+    assert.equal(registration("abcdef"), false);
+    assert.equal(registration("Abcdef"), false);
+    assert.equal(registration("Abc1x"), false);
+    assert.equal(registration("A" + "a1".repeat(64)), false);
+    assert.equal(loginSchema.safeParse({ email: "cliente@example.test", password: "abcde" }).success, true);
+});
+
 test("login issues a persistent expiring JWT and rejects invalid credentials and inactive admins", async (t) => {
     const email = "login-" + randomUUID() + "@example.test";
-    const password = "Test-only-password-" + randomUUID();
+    const password = "abcde";
     const http = await startTestServer(createApp());
     try {
         const admin = await createAdmin({ email, password });

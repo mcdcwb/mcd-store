@@ -13,7 +13,7 @@ process.env.JWT_SECRET = randomBytes(32).toString("hex");
 test("customer profile, address and password use the authenticated identity", async t => {
     const suffix = randomUUID();
     const emails = ["a", "b", "admin", "changed", "race"].map(name => `${name}-${suffix}@example.test`);
-    const password = "old-" + suffix, newPassword = "new-" + suffix;
+    const password = "OldPasswordA1-" + suffix, newPassword = "NewPasswordA1-" + suffix;
     const server = await startTestServer(createApp());
     let productId: number | undefined;
     let userIds: number[] = [];
@@ -123,7 +123,7 @@ test("customer profile, address and password use the authenticated identity", as
 test("administrator account changes are limited to the authenticated admin", async () => {
     const suffix = randomUUID();
     const adminEmail = `admin-${suffix}@example.test`, nextEmail = `updated-${suffix}@example.test`, otherEmail = `other-${suffix}@example.test`, userEmail = `user-${suffix}@example.test`;
-    const password = `old-${suffix}`, nextPassword = `new-${suffix}`;
+    const password = `OldPasswordA1-${suffix}`, nextPassword = `NewPasswordA1-${suffix}`;
     const server = await startTestServer(createApp());
     let adminIds: number[] = [], userId: number | undefined;
     try {

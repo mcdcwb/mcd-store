@@ -22,15 +22,23 @@ function isAccount(value: unknown): value is Account {
 }
 
 export function validateLogin(email: string, password: string): string | null {
-  if (!email.trim().includes("@") || email.trim().length > 254) return "Informe um e-mail válido.";
-  if (password.length < 1 || password.length > 128) return "A senha deve ter de 1 a 128 caracteres.";
+  const normalizedEmail = email.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254) return "Informe um e-mail v\u00e1lido.";
+  if (!password) return "Informe uma senha.";
+  if (password.length > 128) return "A senha deve ter no m\u00e1ximo 128 caracteres.";
   return null;
 }
 
 export function validateRegistration({ name, email, password }: RegisterInput): string | null {
+  if (!name.trim()) return "Informe seu nome completo.";
   if (name.trim().length < 2 || name.trim().length > 100) return "O nome deve ter de 2 a 100 caracteres.";
-  if (!email.trim().includes("@") || email.trim().length > 254) return "Informe um e-mail válido.";
-  if (password.length < 5 || password.length > 128) return "A senha deve ter de 5 a 128 caracteres.";
+  const normalizedEmail = email.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254) return "Informe um e-mail v\u00e1lido.";
+  if (!password) return "Informe uma senha.";
+  if (password.length < 6) return "A senha deve conter pelo menos 6 caracteres.";
+  if (password.length > 128) return "A senha deve ter no m\u00e1ximo 128 caracteres.";
+  if (!/[A-Z]/.test(password)) return "A senha deve conter pelo menos uma letra mai\u00fascula.";
+  if (!/[0-9]/.test(password)) return "A senha deve conter pelo menos um n\u00famero.";
   return null;
 }
 

@@ -18,7 +18,7 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
 }
 export async function changePassword(req: Request, res: Response) {
     const result = changePasswordSchema.safeParse(req.body);
-    if (!result.success) return res.status(400).json({ error: "A nova senha deve ter de 5 a 128 caracteres e a confirmação deve ser igual." });
+    if (!result.success) return res.status(400).json({ error: "A nova senha deve ter de 6 a 128 caracteres, uma letra maiúscula, um número e a confirmação deve ser igual." });
     if (!await service.changePassword(res.locals.account.id, result.data)) return res.status(400).json({ error: "Senha atual incorreta." });
     return res.json({ message: "Senha alterada com sucesso." });
 }
@@ -41,7 +41,7 @@ export async function updateAdminEmail(req: Request, res: Response, next: NextFu
 export async function changeAdminPassword(req: Request, res: Response) {
     if (res.locals.account.role !== "ADMIN") return res.status(403).json({ error: "Acesso exclusivo para administradores." });
     const result = changePasswordSchema.safeParse(req.body);
-    if (!result.success) return res.status(400).json({ error: "A nova senha deve ter de 5 a 128 caracteres e a confirmação deve ser igual." });
+    if (!result.success) return res.status(400).json({ error: "A nova senha deve ter de 6 a 128 caracteres, uma letra maiúscula, um número e a confirmação deve ser igual." });
     if (!await service.changeAdminPassword(res.locals.account.id, result.data)) return res.status(400).json({ error: "Senha atual incorreta." });
     return res.json({ message: "Senha alterada com sucesso." });
 }

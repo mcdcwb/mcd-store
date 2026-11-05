@@ -13,7 +13,7 @@ const color = (name = "Preto", stock = 3) => ({ colorName: name, colorValue: "#a
 const editable = (c: any) => ({ id: c.id, colorName: c.colorName, colorValue: c.colorValue, imageUrl: c.imageUrl ?? "", images: c.images, variants: c.variants.map(({ id, value, stock }: any) => ({ id, value, stock })) });
 test("nested product CRUD preserves identity, cart relations and per-color stock", async t => {
   const server = await startTestServer(createApp());
-  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = randomUUID();
+  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = "TestPasswordA1-" + randomUUID();
   const ids: number[] = [];
   try {
     await createAdmin({ email, password }); const user = await createUser({ name: "Color Customer", email: userEmail, password });

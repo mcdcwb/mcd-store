@@ -11,7 +11,7 @@ process.env.JWT_SECRET = randomBytes(32).toString("hex");
 
 test("categories enforce ADMIN CRUD, unique normalized names, FK protection and publication/stock availability", async t => {
   const server = await startTestServer(createApp());
-  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = randomUUID();
+  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = "TestPasswordA1-" + randomUUID();
   const categoryIds: number[] = [], productIds: number[] = [];
   try {
     await createAdmin({ email, password }); await createUser({ name: "Category User", email: userEmail, password });

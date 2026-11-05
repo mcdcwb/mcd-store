@@ -58,7 +58,7 @@ export function AdminAccountPage({ token, user, onUpdated }: { token: string; us
       </form>
       <form onSubmit={savePassword} className="space-y-4 rounded-xl border border-border bg-card p-5 sm:p-6">
         <h2 className="font-semibold text-lg">Senha</h2>
-        {([ ["currentPassword", "Senha atual", "current-password", 1], ["newPassword", "Nova senha", "new-password", 5], ["confirmPassword", "Confirmar nova senha", "new-password", 5] ] as const).map(([key, label, autoComplete, minLength]) => <label key={key} className="block text-sm font-medium">{label}<input className={input} type="password" autoComplete={autoComplete} minLength={minLength} maxLength={128} required value={passwords[key]} onChange={event => setPasswords(previous => ({ ...previous, [key]: event.target.value }))} /></label>)}
+        {([ ["currentPassword", "Senha atual", "current-password", 1], ["newPassword", "Nova senha", "new-password", 6], ["confirmPassword", "Confirmar nova senha", "new-password", 6] ] as const).map(([key, label, autoComplete, minLength]) => <label key={key} className="block text-sm font-medium">{label}<input className={input} type="password" autoComplete={autoComplete} minLength={minLength} maxLength={128} required value={passwords[key]} onChange={event => setPasswords(previous => ({ ...previous, [key]: event.target.value }))} /></label>)}
         {passwordError && <p role="alert" className="text-sm text-destructive">{passwordError}</p>}{passwordSuccess && <p role="status" className="text-sm text-primary">{passwordSuccess}</p>}
         <Button className="h-auto min-h-11 rounded-lg px-5 py-2.5" type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar nova senha"}</Button>
       </form>

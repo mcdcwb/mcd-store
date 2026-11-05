@@ -15,10 +15,10 @@ process.env.JWT_SECRET = randomBytes(32).toString("hex");
 
 test("public registration persists a user with a hash and rejects privileged fields", async () => {
     const email = "customer-" + randomUUID() + "@example.test";
-    const password = randomBytes(12).toString("hex");
+    const password = "TestPasswordA1-" + randomUUID();
     const http = await startTestServer(createApp());
     try {
-        for (const extra of [{ role: "ADMIN" }, { active: false }, { password: "tiny" }, { name: "" }]) {
+        for (const extra of [{ role: "ADMIN" }, { active: false }, { password: "tiny" }, { password: "abcdef" }, { password: "Abcdef" }, { password: "Abc1x" }, { name: "" }]) {
             assert.equal((await http.request("/auth/register", "POST", { name: "Cliente", email, password, ...extra })).status, 400);
         }
         const response = await http.request("/auth/register", "POST", { name: " Cliente ", email: email.toUpperCase(), password });
@@ -41,7 +41,7 @@ test("public registration persists a user with a hash and rejects privileged fie
 
 test("admin email cannot be registered as a customer", async () => {
     const email = "reserved-" + randomUUID() + "@example.test";
-    const password = randomBytes(12).toString("hex");
+    const password = "TestPasswordA1-" + randomUUID();
     const http = await startTestServer(createApp());
     try {
         await createAdmin({ email, password });
@@ -56,7 +56,7 @@ test("admin email cannot be registered as a customer", async () => {
 
 test("concurrent admin and customer registration share an exclusive email", async () => {
     const email = "race-" + randomUUID() + "@example.test";
-    const password = randomBytes(12).toString("hex");
+    const password = "TestPasswordA1-" + randomUUID();
     try {
         const results = await Promise.allSettled([
             createAdmin({ email, password }), createUser({ name: "Cliente", email, password }),
@@ -75,7 +75,7 @@ test("concurrent admin and customer registration share an exclusive email", asyn
 test("shared login and /me identify customers and admins without granting customer privileges", async (t) => {
     const email = "roles-" + randomUUID() + "@example.test";
     const adminEmail = "admin-" + email;
-    const password = randomBytes(12).toString("hex");
+    const password = "TestPasswordA1-" + randomUUID();
     const http = await startTestServer(createApp());
     try {
         const user = await createUser({ name: "Cliente Real", email, password });

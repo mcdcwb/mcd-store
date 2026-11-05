@@ -12,7 +12,7 @@ import { startTestServer } from "./helpers/http.js";
 process.env.JWT_SECRET = randomBytes(32).toString("hex");
 test("carousel persists, authorizes ADMIN and enforces five even with concurrent requests", async () => {
   const server = await startTestServer(createApp());
-  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = randomUUID();
+  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = "TestPasswordA1-" + randomUUID();
   const ids: number[] = [];
   try {
     await createAdmin({ email, password });

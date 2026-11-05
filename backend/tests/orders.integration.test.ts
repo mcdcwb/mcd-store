@@ -11,7 +11,7 @@ import { startTestServer } from "./helpers/http.js";
 process.env.JWT_SECRET = randomBytes(32).toString("hex");
 test("ADMIN order reads validate filters, pagination and historical snapshots", async t => {
   assert.match(new URL(process.env.DATABASE_URL!).pathname, /^\/mcd_store_test_/);
-  const tag = randomUUID(), password = randomUUID(), email = `${tag}@example.test`, adminEmail = `admin-${tag}@example.test`, otherEmail = `other-${tag}@example.test`;
+  const tag = randomUUID(), password = "TestPasswordA1-" + randomUUID(), email = `${tag}@example.test`, adminEmail = `admin-${tag}@example.test`, otherEmail = `other-${tag}@example.test`;
   const address = { cep: "80000000", street: "Rua Histórica", number: "123", complement: "", neighborhood: "Centro", city: "Curitiba", state: "PR" };
   const storeAddress = { ...address, street: "Loja Histórica", number: "456" };
   const server = await startTestServer(createApp());

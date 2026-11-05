@@ -22,7 +22,7 @@ test("upload authorization, multipart validation and sanitized provider failures
   const server = app.listen(0, "127.0.0.1"); await once(server, "listening");
   const address = server.address(); assert.ok(address && typeof address !== "string");
   const base = `http://127.0.0.1:${address.port}`;
-  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = randomUUID();
+  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = "TestPasswordA1-" + randomUUID();
   const send = (token?: string, bytes = png, type = "image/png", field = "file") => {
     const body = new FormData(); if (field) body.append(field, new Blob([new Uint8Array(bytes)], { type }), "local-image");
     return fetch(base + "/uploads/produtos", { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body });

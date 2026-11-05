@@ -14,7 +14,7 @@ process.env.JWT_SECRET = randomBytes(32).toString("hex");
 
 test("administrative cancellation restores original variants atomically", async t => {
   assert.match(new URL(process.env.DATABASE_URL!).pathname, /^\/mcd_store_test_/);
-  const tag = randomUUID(), email = `${tag}@example.test`, adminEmail = `admin-${tag}@example.test`, password = randomUUID();
+  const tag = randomUUID(), email = `${tag}@example.test`, adminEmail = `admin-${tag}@example.test`, password = "TestPasswordA1-" + randomUUID();
   const server = await startTestServer(createApp());
   const category = await prisma.category.create({ data: { name: tag, normalizedName: tag } });
   try {

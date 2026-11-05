@@ -18,12 +18,21 @@ function memoryStorage() {
 
 test("login and registration validation match backend boundaries", () => {
   assert.ok(validateLogin(account.email, ""));
+  assert.match(validateLogin(account.email, ""), /Informe uma senha/);
+  assert.match(validateLogin("nao-e-email", "abcde"), /e-mail/);
   assert.equal(validateLogin(account.email, "a"), null);
+  assert.equal(validateLogin(account.email, "abcde"), null);
   assert.equal(validateLogin(account.email, "a".repeat(128)), null);
   assert.ok(validateLogin(account.email, "a".repeat(129)));
-  assert.ok(validateRegistration({ name: "A", email: account.email, password: "12345" }));
-  assert.ok(validateRegistration({ name: "Cliente", email: account.email, password: "1234" }));
-  assert.equal(validateRegistration({ name: "Cliente", email: account.email, password: "12345" }), null);
+  assert.ok(validateRegistration({ name: "A", email: account.email, password: "Abcde1" }));
+  assert.ok(validateRegistration({ name: "Cliente", email: account.email, password: "Abc1" }));
+  assert.match(validateRegistration({ name: "", email: account.email, password: "Abcde1" }), /nome completo/);
+  assert.match(validateRegistration({ name: "Cliente", email: "invalido", password: "Abcde1" }), /e-mail/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "" }), /Informe uma senha/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "abcdef" }), /letra mai/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "Abcdef" }), /pelo menos um n/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "Abc1x" }), /pelo menos 6 caracteres/);
+  assert.equal(validateRegistration({ name: "Cliente", email: account.email, password: "Abcde1" }), null);
 });
 
 test("shared login validates the returned role and token with /auth/me", async () => {
@@ -45,8 +54,8 @@ test("registration posts only public account fields and does not create a sessio
     sent = JSON.parse(init.body);
     return json({ account }, 201);
   });
-  assert.deepEqual(await api.register({ name: " Cliente ", email: " TEST@example.test ", password: "12345" }), account);
-  assert.deepEqual(sent, { name: "Cliente", email: account.email, password: "12345" });
+  assert.deepEqual(await api.register({ name: " Cliente ", email: " TEST@example.test ", password: "Abcde1" }), account);
+  assert.deepEqual(sent, { name: "Cliente", email: account.email, password: "Abcde1" });
 });
 
 test("connection refusal never becomes a successful login", async () => {

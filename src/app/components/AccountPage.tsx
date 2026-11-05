@@ -180,7 +180,7 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
         {passwordOpen && <form id="password-form" onSubmit={savePassword}>
           <fieldset disabled={saving} className="space-y-4">
             {([{ key: "currentPassword", label: "Senha atual" }, { key: "newPassword", label: "Nova senha" }, { key: "confirmPassword", label: "Confirmar nova senha" }] as const).map(field => <label key={field.key} className="block text-sm font-medium">{field.label}
-              <input type="password" className={inputClass} autoComplete={field.key === "currentPassword" ? "current-password" : "new-password"} minLength={field.key === "currentPassword" ? 1 : 5} maxLength={128} required value={passwords[field.key]} onChange={e => setPasswords(previous => ({ ...previous, [field.key]: e.target.value }))} />
+              <input type="password" className={inputClass} autoComplete={field.key === "currentPassword" ? "current-password" : "new-password"} minLength={field.key === "currentPassword" ? 1 : 6} maxLength={128} required value={passwords[field.key]} onChange={e => setPasswords(previous => ({ ...previous, [field.key]: e.target.value }))} />
             </label>)}
             {passwordError && <p role="alert" className="text-sm text-destructive">{passwordError}</p>}
             <button type="submit" className={buttonClass}>{saving ? "Salvando..." : "Salvar nova senha"}</button>

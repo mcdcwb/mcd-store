@@ -21,7 +21,7 @@ test("checkout persists orders without changing cart/stock and confirms atomical
   const schema = "checkout_test_" + randomUUID().replaceAll("-", "");
   const db = new pg.Client({ connectionString: process.env.DATABASE_URL }); await db.connect();
   const isolated = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }, { schema }) });
-  const password = randomUUID(), email = randomUUID() + "@example.test", adminEmail = randomUUID() + "@example.test";
+  const password = "TestPasswordA1-" + randomUUID(), email = randomUUID() + "@example.test", adminEmail = randomUUID() + "@example.test";
   const server = await startTestServer(createApp({ settingsDatabase: isolated }));
   let productId: number | undefined;
   const address = { cep: "80000000", street: "Rua São João", number: "123", complement: "Apto 7", neighborhood: "Centro", city: "Curitiba", state: "PR" };

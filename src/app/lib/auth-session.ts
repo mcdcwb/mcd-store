@@ -122,6 +122,9 @@ export function createAuthSession(
 
   return {
     login, restore, logout,
+    clearError() {
+      if (state.error) publish(state.session, null, state.validating);
+    },
     invalidate(accessToken: string | undefined, error: string) {
       if (accessToken && state.session?.accessToken === accessToken && read()?.accessToken === accessToken) logout(error);
       else void restore();

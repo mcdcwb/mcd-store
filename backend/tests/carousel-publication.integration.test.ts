@@ -15,7 +15,7 @@ test("selected drafts are public only as slides; favorites, categories and cart 
     await prisma.$disconnect(); return;
   }
   const server = await startTestServer(createApp());
-  const suffix = randomUUID(), email = `slides-${suffix}@example.test`, userEmail = `slides-user-${suffix}@example.test`, password = suffix;
+  const suffix = randomUUID(), email = `slides-${suffix}@example.test`, userEmail = `slides-user-${suffix}@example.test`, password = `TestPasswordA1-${suffix}`;
   const ids: number[] = [];
   let categoryId: number | undefined;
   try {
