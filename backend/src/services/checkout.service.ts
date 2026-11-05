@@ -91,7 +91,7 @@ export async function prepareCheckoutWhatsapp(userId: number, input: z.infer<typ
     if (input.fulfillmentMethod === "DELIVERY" && !address) throw new CheckoutError(409, "Cadastre um endereço válido em Minha Conta para receber seu pedido.");
     if (input.fulfillmentMethod === "PICKUP" && !pickupAddress) throw new CheckoutError(409, "O local de retirada está temporariamente indisponível.");
     const baseUrl = whatsappUrl(store.whatsapp);
-    if (!baseUrl) throw new CheckoutError(409, "O contato da loja está temporariamente indisponível.");
+    if (!baseUrl) throw new CheckoutError(409, "O contato da loja está indisponível nesta demonstração.");
     const context = {
       customerName: user.name, address: input.fulfillmentMethod === "DELIVERY" ? address : null,
       pickupAddress: input.fulfillmentMethod === "PICKUP" ? pickupAddress : null, whatsapp: store.whatsapp

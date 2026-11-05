@@ -208,7 +208,7 @@ function CheckoutReviewPage({ user, token, shopping, store, cartOpen, onOpenCart
         {method === "PICKUP" && <p className="mt-4 text-sm text-muted-foreground">Retirada na loja. Por favor, verifique a disponibilidade pelo WhatsApp.</p>}
         {!method && <p className="mt-4 text-sm">Escolha entrega ou retirada para continuar.</p>}
         {profileError && <p role="alert" className="mt-4 text-sm text-destructive">{profileError}</p>}
-        {store.error ? <p role="alert" className="mt-4 text-sm text-destructive">{store.error}</p> : !store.loading && !whatsappUrl(store.whatsapp) && <p role="alert" className="mt-4 text-sm text-destructive">O contato da loja está temporariamente indisponível.</p>}
+        {store.error ? <p role="alert" className="mt-4 text-sm text-destructive">{store.error}</p> : !store.loading && !whatsappUrl(store.whatsapp) && <p role="alert" className="mt-4 text-sm text-destructive">O contato da loja está indisponível nesta demonstração.</p>}
         {finalError && <p role="alert" className="mt-4 text-sm text-destructive">{finalError}</p>}
         <div className="flex justify-center">
           <button onClick={() => { attempt.current = null; setRevision(value => value + 1); store.reload(); setOpened(false); }} disabled={sending || loading} className={action + " text-primary underline text-sm mt-3"}>Conferir dados novamente</button>
