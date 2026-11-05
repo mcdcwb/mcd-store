@@ -440,10 +440,10 @@ export default function App() {
               <a href="/#contato" onClick={event => { event.preventDefault(); setMobileMenuOpen(false); navigate("/#contato"); }} className={`block ${mobileNavItemClass} text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-primary`}>Contato</a>
               <div className="mx-3 my-2 border-t border-border" />
               <div className={availableCategories.length < 2 ? "hidden" : ""}>
-              <div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Categorias
-              </div>
-              <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} optionLabelClassName="pl-2" />
+                <div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Categorias
+                </div>
+                <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} optionLabelClassName="pl-2" />
               </div>
               <div className="hidden"><div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">Público</div>
                 <FilterOptions options={PUBLICS} value={activePublic} allValue="todos" onChange={value => selectPublic(value ?? "todos")} />
@@ -659,10 +659,10 @@ export default function App() {
                 <div className="flex w-full flex-col gap-2">
                   <div className="flex min-w-0 items-center justify-between gap-2">
                     <div className="min-w-0 flex-1 lg:flex-none">
-                      <h2 className="font-serif text-2xl font-bold text-foreground leading-tight">
+                      <h2 className="pl-2 md:pl-0 font-serif text-2xl font-bold text-foreground leading-tight">
                         {catalogTitle}
                       </h2>
-                      <p className="text-sm text-muted-foreground mt-0.5">
+                      <p className="pl-2 mt-1 text-sm text-muted-foreground mt-0.5">
                         {productsLoading ? "Carregando..." : productsError ? "Catálogo indisponível" : `${filteredProducts.length} ${filteredProducts.length === 1 ? "peça encontrada" : "peças encontradas"}`}
                       </p>
                     </div>
@@ -698,19 +698,19 @@ export default function App() {
                     const element = event.currentTarget;
                     setSizeScroll({ left: element.scrollLeft > 0, right: element.scrollLeft + element.clientWidth < element.scrollWidth - 1 });
                   }} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain scroll-smooth" style={{ scrollbarWidth: "none", touchAction: "pan-x" }}>
-                  {allSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => toggleSize(size)}
-                      aria-pressed={selectedSizes.includes(size)}
-                      className={`store-catalog-control ${sizeButtonClass} text-xs font-medium border transition-all ${selectedSizes.includes(size)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border hover:border-primary/50"
-                        }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                    {allSizes.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => toggleSize(size)}
+                        aria-pressed={selectedSizes.includes(size)}
+                        className={`store-catalog-control ${sizeButtonClass} text-xs font-medium border transition-all ${selectedSizes.includes(size)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border hover:border-primary/50"
+                          }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
                   <button type="button" aria-label="Rolar tamanhos para a direita" disabled={!sizeScroll.right} onClick={() => mobileSizesRef.current?.scrollBy({ left: 140, behavior: "smooth" })}
                     className="shrink-0 rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-30"><ChevronRight className="size-4" /></button>
