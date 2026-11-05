@@ -26,13 +26,13 @@ export function AccountMenu({ name, role, onLogout }: { name: string; role: "USE
       }}>
       <button ref={trigger} type="button" aria-expanded={open} aria-controls={id}
         onClick={() => setOpen(value => !value)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-[3px] border border-white bg-muted text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">
+        className="flex items-center gap-1.5 px-3 py-2 rounded-sm border border-t-gray-400 border-r-gray-400 border-b-gray-300 border-l-gray-300 bg-muted text-muted-foreground cursor-pointer transition-all duration-150 hover:translate-y-px hover:text-primary hover:border-t-gray-600 hover:border-r-gray-600 hover:border-b-gray-500 hover:border-l-gray-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.45)] active:translate-y-0.5 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] focus-visible:outline-2 focus-visible:outline-primary">
         <User aria-hidden="true" className="w-3.5 h-3.5 shrink-0" />
         <span className="sr-only sm:not-sr-only text-[15px] font-medium max-w-40 truncate">{name.trim().split(/\s+/)[0]}</span>
       </button>
       {open && (
         <div id={id} className="fixed left-0 right-0 top-16 z-50 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-44 sm:pt-2">
-          <nav aria-label="Menu da conta" className="overflow-hidden border-y border-border bg-card text-[15px] shadow-xl sm:rounded-xl sm:border">
+          <nav aria-label="Menu da conta" className="overflow-hidden border-y border-border bg-card text-[15px] shadow-xl sm:rounded-sm sm:border">
             <Link to="/minha-conta" onClick={() => setOpen(false)} className="block px-4 py-3 hover:bg-muted focus-visible:bg-muted">Minha Conta</Link>
             {role === "ADMIN" && <Link to="/manager" onClick={() => setOpen(false)} className="block px-4 py-3 hover:bg-muted focus-visible:bg-muted">Painel Administrativo</Link>}
             <Link to="/favoritos" onClick={() => setOpen(false)} className="block px-4 py-3 hover:bg-muted focus-visible:bg-muted">Favoritos</Link>

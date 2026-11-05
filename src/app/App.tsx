@@ -333,7 +333,7 @@ export default function App() {
               <img
                 src="/mark-512-transparent.png"
                 alt="MCD Store"
-                className="h-10 w-auto object-contain transition-opacity group-hover:opacity-80"
+                className="h-10 w-auto object-contain transition-opacity group-hover:opacity-60"
               />
             </button>
 
@@ -347,7 +347,7 @@ export default function App() {
                     top: 0,
                   });
                 }}
-                className="text-[15px] font-medium cursor-pointer transition-colors hover:text-primary"
+                className="text-[17px] font-light cursor-pointer transition-colors hover:text-primary"
               >
                 Início
               </button>
@@ -358,8 +358,8 @@ export default function App() {
                   className="flex items-center gap-1 text-[15px] font-medium hover:text-primary">
                   Público<ChevronDown className={`w-4 h-4 ${publicDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
-                {publicDropdownOpen && <div className="absolute top-full left-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
-                  <FilterOptions options={PUBLICS} value={activePublic} allValue="todos" onChange={value => selectPublic(value ?? "todos")} />
+                {publicDropdownOpen && <div className="absolute top-full left-0 mt-2 w-56 bg-card border border-border rounded-sm shadow-1 overflow-hidden z-50">
+                  <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} />
                 </div>}
               </div>
               {/* Categorias dropdown */}
@@ -367,15 +367,15 @@ export default function App() {
                 <button
                   aria-expanded={catDropdownOpen}
                   onClick={() => { setCatDropdownOpen((v) => !v); setPublicDropdownOpen(false); }}
-                  className="flex items-center gap-1 text-[15px] font-medium cursor-pointer hover:text-primary transition-colors"
+                  className="flex items-center gap-x-1.5 text-[15px] font-light cursor-pointer hover:text-primary transition-colors"
                 >
                   Categorias
                   <ChevronDown
-                    className={`w-4 h-4 transition-transform duration-200 ${catDropdownOpen ? "rotate-180" : ""}`}
+                    className={`w-5 h-5 transition-transform duration-200 ${catDropdownOpen ? "rotate-180" : ""}`}
                   />
                 </button>
                 {catDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
+                  <div className="absolute top-full left-0 mt-2 w-56 bg-card border border-border rounded-sm shadow-1 overflow-hidden z-50">
                     <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} />
                   </div>
                 )}
@@ -383,7 +383,7 @@ export default function App() {
 
               <a
                 href="/#contato"
-                className="text-[15px] font-medium hover:text-primary transition-colors"
+                className="text-[15px] font-light hover:text-primary transition-colors"
               >
                 Contato
               </a>
@@ -396,9 +396,9 @@ export default function App() {
             <div className="flex items-center gap-3 md:gap-2">
               {user ? <AccountMenu name={user.name} role={user.role} onLogout={handleLogout} /> : (<button
                 onClick={() => { setAuthOpen(true); }}
-                className="hidden md:flex items-center gap-1.5 text-[15px] font-medium px-3 py-1.5 rounded-lg border border-border hover:border-primary/40 hover:text-primary transition-all"
+                className="hidden md:flex items-center gap-1.5 text-[15px] font-medium px-3 py-1.5 rounded-sm border border-t-gray-400 border-r-gray-400 border-b-gray-300 border-l-gray-300 bg-muted text-muted-foreground cursor-pointer transition-all duration-150 hover:translate-y-px hover:text-primary hover:border-t-gray-600 hover:border-r-gray-600 hover:border-b-gray-500 hover:border-l-gray-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.45)] active:translate-y-0.5 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] focus-visible:outline-2 focus-visible:outline-primary"
               >
-                <User className="w-4 h-4" />
+                <User aria-hidden="true" className="w-4 h-4" />
                 Entrar
               </button>
               )}
@@ -406,7 +406,7 @@ export default function App() {
               {/* Cart button */}
               <button
                 onClick={() => setCartOpen(true)}
-                className="relative p-2 rounded-lg hover:bg-muted transition-colors"
+                className="relative p-2 rounded-sm hover:bg-muted transition-colors hover:text-primary ml-2 cursor-pointer"
                 aria-label="Abrir carrinho"
               >
                 <ShoppingCart className="w-5 h-5" />
@@ -421,7 +421,7 @@ export default function App() {
               <button ref={mobileMenuToggleRef}
                 aria-label="Abrir menu de navegação"
                 onClick={() => setMobileMenuOpen((v) => !v)}
-                className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors"
+                className="md:hidden p-2 rounded-sm hover:bg-muted transition-colors hover:text-primary"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -668,7 +668,7 @@ export default function App() {
                       <h2 className="pl-2 md:pl-0 font-serif text-2xl font-bold text-foreground leading-tight">
                         {catalogTitle}
                       </h2>
-                      <p className="pl-2 mt-1 text-sm text-muted-foreground mt-0.5">
+                      <p className="pl-2 md:pl-0 mt-1 text-sm text-muted-foreground">
                         {productsLoading ? "Carregando..." : productsError ? "Catálogo indisponível" : `${filteredProducts.length} ${filteredProducts.length === 1 ? "peça encontrada" : "peças encontradas"}`}
                       </p>
                     </div>
