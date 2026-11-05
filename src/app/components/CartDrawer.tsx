@@ -65,10 +65,10 @@ export function CartDrawer({
         {/* Header */}
         <div className="px-5 py-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg font-bold">Seu Carrinho</h2>
-          <button aria-label="Fechar carrinho" onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+            <h2 className="flex items-center gap-4 font-bold"><ShoppingCart aria-hidden="true" className="h-5 w-5" />Seu Carrinho</h2>
+            <button aria-label="Fechar carrinho" onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
+              <X className="w-5 h-5" />
+            </button>
           </div>
           {!user && (
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -102,10 +102,10 @@ export function CartDrawer({
             items.map((item) => (
               <div
                 key={`${item.product.id}-${item.colorId}-${item.size}`}
-                className="flex gap-3 p-3 rounded-xl bg-muted/40 border border-border/60"
+                className="flex gap-3 p-3 rounded-none bg-muted/50 border border-border/60"
               >
                 {/* Thumb */}
-                <div className="w-18 h-20 rounded-lg overflow-hidden bg-muted shrink-0">
+                <div className="w-20 h-24 rounded-sm overflow-hidden bg-muted shrink-0">
                   <ProductImage
                     src={item.product.imageUrl}
                     alt={item.product.name}
@@ -129,7 +129,7 @@ export function CartDrawer({
                       aria-label="Diminuir quantidade"
                       title={item.quantity > stockFor(item.product, item.size) ? `Ajustar para ${stockFor(item.product, item.size)} unidades disponíveis` : undefined}
                       onClick={() => onChangeQty(item.product.id, item.size, -1, item.colorId)}
-                      className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                      className="w-7 h-7 rounded-sm border border-border flex items-center justify-center hover:bg-muted transition-colors"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -138,7 +138,7 @@ export function CartDrawer({
                       disabled={busy || item.quantity >= stockFor(item.product, item.size)}
                       aria-label="Aumentar quantidade"
                       onClick={() => onChangeQty(item.product.id, item.size, 1, item.colorId)}
-                      className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                      className="w-7 h-7 rounded-sm border border-border flex items-center justify-center hover:bg-muted transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -159,13 +159,18 @@ export function CartDrawer({
 
         {/* Footer */}
         {items.length > 0 && (
-          <div className="border-t border-border px-5 py-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <button disabled={busy} onClick={onClearCart} className="flex items-center gap-3 py-3 px-0 rounded-x1 border-border text-sm text-destructive font-medium hover:bg-muted transition-colors">
+          <div className="border-t border-border px-5 py-3 space-y-3">
+            <div className="flex items-center justify-center">
+              <button
+                disabled={busy}
+                onClick={onClearCart}
+                className="flex w-full items-center justify-center gap-3 py-3 rounded-none text-sm text-destructive font-medium hover:bg-muted transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Trash2 className="w-4 h-4" />
                 Limpar Carrinho
               </button>
             </div>
+            <div className="-mx-5 border-t border-border"></div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Subtotal</span>
               <span className="font-bold text-lg text-foreground">{formatPrice(totalPrice)}</span>
