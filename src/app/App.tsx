@@ -617,7 +617,7 @@ export default function App() {
             </p>
             {/* xx */}
             <a
-              className="whitespace-nowrap text-right text-[10px] font-black tracking-[0.1em] underline underline-offset-4 transition-colors hover:text-primary focus-visible:text-primary sm:text-center sm:text-xs sm:tracking-[0.14em]"
+              className="whitespace-nowrap text-right text-[10px] font-semibold tracking-[0.1em] underline underline-offset-4 transition-colors hover:text-primary focus-visible:text-primary sm:text-center sm:text-xs sm:tracking-[0.14em]"
               href="https://luan-machado.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
