@@ -610,16 +610,22 @@ export default function App() {
         </section>}
 
         <section className="store-service-strip border-b-2 border-[#111111] bg-[#D9FF38] px-4 py-3 text-[#111111] sm:py-4">
-          <div className="mx-auto grid max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-4">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:gap-4">
             <Code2 aria-hidden="true" className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-            <p className="min-w-0 text-left text-[9px] font-bold leading-relaxed tracking-[0.08em] sm:text-xs sm:tracking-[0.16em]">
-              PROJETO INDEPENDENTE <span aria-hidden="true">·</span>
+            <p className="min-w-0 flex-1 text-left text-[9px] font-bold leading-relaxed tracking-[0.08em] sm:text-xs sm:tracking-[0.16em]">
+              PROJETO END-TO-END
             </p>
-            <p className="whitespace-nowrap text-center text-[10px] font-black tracking-[0.1em] sm:text-xs sm:tracking-[0.16em]">
+            {/* xx */}
+            <a
+              className="whitespace-nowrap text-right text-[10px] font-black tracking-[0.1em] underline underline-offset-4 transition-colors hover:text-primary focus-visible:text-primary sm:text-center sm:text-xs sm:tracking-[0.14em]"
+              href="https://luan-machado.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               por LUAN MACHADO
-            </p>
-            <p className="min-w-0 text-right text-[9px] font-bold leading-relaxed tracking-[0.08em] sm:text-xs sm:tracking-[0.16em]">
-              <span aria-hidden="true">·</span> E-COMMERCE DEMONSTRATIVO
+            </a>
+            <p className="hidden min-w-0 text-right text-[9px] font-bold leading-relaxed tracking-[0.08em] sm:block sm:text-xs sm:tracking-[0.16em]">
+              E-COMMERCE DEMONSTRATIVO
             </p>
             <Code2 aria-hidden="true" className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
           </div>
