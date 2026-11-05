@@ -41,6 +41,7 @@ const PUBLICS: { value: Public; label: string }[] = [
   { value: "unissex", label: "Unissex" },
   { value: "infantil", label: "Infantil" },
 ];
+const mobileNavItemClass = "rounded-lg px-3 py-3 !text-lg font-medium";
 
 
 export default function App() {
@@ -78,7 +79,7 @@ export default function App() {
   }, [selectedCategory, activeCategory]);
   const [selectedSizes, setSelectedSizes] = useState<Size[]>([]);
   const [catalogSort, setCatalogSort] = useState<CatalogSort>(null);
-  const { user, accessToken, validating, sessionError, login, register, logout, invalidate, updateAccount } = useAuth();
+  const { user, accessToken, validating, sessionError, login, register, logout, clearError: clearAuthError, invalidate, updateAccount } = useAuth();
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -90,6 +91,8 @@ export default function App() {
   const [catDropdownOpen, setCatDropdownOpen] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [isFeaturedHovering, setIsFeaturedHovering] = useState(false);
+  const featuredPointer = useRef<{ id: number; startX: number; startY: number; moved: boolean } | null>(null);
+  const suppressFeaturedClickUntil = useRef(0);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [publicDropdownOpen, setPublicDropdownOpen] = useState(false);
   const publicDropdownRef = useRef<HTMLDivElement>(null);
@@ -303,7 +306,7 @@ export default function App() {
         onLogin={() => { setAuthMode("login"); setAuthOpen(true); }} onLogout={handleLogout}
         onUnauthorized={message => invalidate(accessToken, message)} onChanged={() => { retryProducts(); retryCarousel(); }} onAccountUpdated={updateAccount} />
       {authOpen && <AuthModal mode={authMode} onClose={() => setAuthOpen(false)} onLogin={handleLogin}
-        onRegister={handleRegister} onSwitchMode={() => setAuthMode(mode => mode === "login" ? "register" : "login")}
+        onRegister={handleRegister} onSwitchMode={() => { clearAuthError(); setAuthMode(mode => mode === "login" ? "register" : "login"); }}
         sessionError={sessionError} />}
     </>;
   }
@@ -430,17 +433,17 @@ export default function App() {
             <div ref={mobileMenuRef} className="absolute inset-x-0 top-full z-50 border-y border-border bg-card py-4 shadow-xl md:hidden space-y-1">
               <button
                 onClick={() => { clearFilters(); setMobileMenuOpen(false); navigate("/"); window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }}
-                className="w-full text-left rounded-lg px-3 py-3 text-[15px] font-medium hover:bg-muted"
+                className={`w-full text-left ${mobileNavItemClass} hover:bg-muted`}
               >
                 Início
               </button>
-              <a href="/#contato" onClick={event => { event.preventDefault(); setMobileMenuOpen(false); navigate("/#contato"); }} className="block rounded-lg px-3 py-3 text-[15px] font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">Contato</a>
+              <a href="/#contato" onClick={event => { event.preventDefault(); setMobileMenuOpen(false); navigate("/#contato"); }} className={`block ${mobileNavItemClass} text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-primary`}>Contato</a>
               <div className="mx-3 my-2 border-t border-border" />
               <div className={availableCategories.length < 2 ? "hidden" : ""}>
               <div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Categorias
               </div>
-              <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} />
+              <FilterOptions options={availableCategories} value={activeCategory} allValue={null} onChange={selectCategory} optionLabelClassName="pl-2" />
               </div>
               <div className="hidden"><div className="px-3 pt-2 pb-1 text-[15px] font-semibold uppercase tracking-widest text-muted-foreground">Público</div>
                 <FilterOptions options={PUBLICS} value={activePublic} allValue="todos" onChange={value => selectPublic(value ?? "todos")} />
@@ -448,7 +451,7 @@ export default function App() {
               {!user && (
                 <button
                   onClick={() => { setAuthOpen(true); setMobileMenuOpen(false); }}
-                  className="w-full text-left px-3 py-2.5 text-[15px] font-medium text-primary rounded-lg hover:bg-primary/10"
+                  className="mt-4 w-full rounded-lg px-3 py-2.5 text-center text-[15px] font-medium text-primary hover:bg-primary/10"
                 >
                   Entrar
                 </button>
@@ -497,6 +500,36 @@ export default function App() {
               className="relative overflow-hidden rounded-none"
               onMouseEnter={() => setIsFeaturedHovering(true)}
               onMouseLeave={() => setIsFeaturedHovering(false)}
+              style={{ touchAction: "pan-y" }}
+              onPointerDown={event => {
+                featuredPointer.current = { id: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
+              }}
+              onPointerMove={event => {
+                const pointer = featuredPointer.current;
+                if (!pointer || pointer.id !== event.pointerId) return;
+                const dx = event.clientX - pointer.startX;
+                const dy = event.clientY - pointer.startY;
+                if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) pointer.moved = true;
+              }}
+              onPointerUp={event => {
+                const pointer = featuredPointer.current;
+                if (!pointer || pointer.id !== event.pointerId) return;
+                const dx = event.clientX - pointer.startX;
+                const dy = event.clientY - pointer.startY;
+                if (pointer.moved) {
+                  if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) goToFeaturedSlide(dx < 0 ? "next" : "prev");
+                  suppressFeaturedClickUntil.current = Date.now() + 500;
+                }
+                featuredPointer.current = null;
+              }}
+              onPointerCancel={() => { featuredPointer.current = null; }}
+              onClickCapture={event => {
+                if (Date.now() < suppressFeaturedClickUntil.current) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  suppressFeaturedClickUntil.current = 0;
+                }
+              }}
             >
               <div
                 className="flex transition-transform duration-300 ease-out"
@@ -756,7 +789,7 @@ export default function App() {
           onClose={closeAuth}
           onLogin={handleLogin}
           onRegister={handleRegister}
-          onSwitchMode={() => setAuthMode(mode => mode === "login" ? "register" : "login")}
+          onSwitchMode={() => { clearAuthError(); setAuthMode(mode => mode === "login" ? "register" : "login"); }}
           sessionError={sessionError}
         />
       )}

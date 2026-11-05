@@ -63,21 +63,21 @@ export function CartDrawer({
       {/* Drawer */}
       <div ref={drawerRef} className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div>
+        <div className="px-5 py-4 border-b border-border">
+          <div className="flex items-center justify-between">
             <h2 className="font-serif text-lg font-bold">Seu Carrinho</h2>
-            {!user && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Itens salvos localmente.{" "}
-                <button onClick={onOpenAuth} className="text-primary underline underline-offset-2 hover:opacity-80">
-                  Entre para sincronizar
-                </button>
-              </p>
-            )}
-          </div>
           <button aria-label="Fechar carrinho" onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
             <X className="w-5 h-5" />
           </button>
+          </div>
+          {!user && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              <span>Itens salvos localmente</span>
+              <button onClick={onOpenAuth} className="mx-auto mt-2 block w-fit rounded-lg border border-border px-3 py-2 text-primary transition-colors hover:bg-primary/10">
+                Entre para sincronizar
+              </button>
+            </p>
+          )}
         </div>
 
         {/* Items */}
@@ -161,7 +161,7 @@ export function CartDrawer({
         {items.length > 0 && (
           <div className="border-t border-border px-5 py-4 space-y-3">
             <div className="flex items-center justify-between">
-              <button disabled={busy} onClick={onClearCart} className="flex items-center gap-3 py-0 px-0 rounded-x1 border-border text-sm text-destructive font-medium hover:bg-muted transition-colors">
+              <button disabled={busy} onClick={onClearCart} className="flex items-center gap-3 py-3 px-0 rounded-x1 border-border text-sm text-destructive font-medium hover:bg-muted transition-colors">
                 <Trash2 className="w-4 h-4" />
                 Limpar Carrinho
               </button>

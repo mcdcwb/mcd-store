@@ -308,7 +308,7 @@ export function ProductCard({
           <p className="text-[17px] font-medium leading-[1.25] text-foreground line-clamp-2 min-h-[2.5rem] break-words">
             {product.name}
           </p>
-          <div className="store-product-price mt-1"><p className="text-base font-bold text-primary">{formatPrice(product.price)}</p><ProductBadges placement="price" product={badgeProduct ?? baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} /></div>
+          <div className="store-product-price mt-1"><p className="text-lg font-bold leading-tight text-primary">{formatPrice(product.price)}</p><ProductBadges placement="price" product={badgeProduct ?? baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} /></div>
         </div>
 
         {product.colors.length > 0 && <ColorSelector card product={product} onSelect={id => {

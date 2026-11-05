@@ -14,16 +14,17 @@ export function FilterSection({ title, children }: { title: string; children: Re
   </section>;
 }
 
-export function FilterOptions<T extends string>({ options, value, onChange, allValue }: {
+export function FilterOptions<T extends string>({ options, value, onChange, allValue, optionLabelClassName }: {
   options: readonly { value: T; label: string }[];
   value: T | null; allValue: T | null; onChange: (value: T | null) => void;
+  optionLabelClassName?: string;
 }) {
   return <div className="space-y-0.5">
     {[{ value: allValue, label: "Todos" }, ...options].map(option => (
       <button key={option.value ?? "all"} type="button" aria-pressed={value === option.value}
         onClick={() => onChange(option.value)}
         className={`store-catalog-control w-full text-left px-3 py-2 rounded-lg text-sm tracking-[0.025em] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${value === option.value ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"}`}>
-        {option.label}
+        <span className={optionLabelClassName}>{option.label}</span>
       </button>
     ))}
   </div>;
