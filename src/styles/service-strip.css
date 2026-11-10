@@ -1,0 +1,13 @@
+/* "por LUAN MACHADO": no hover/foco o sublinhado se recolhe para a direita e volta a se desenhar da esquerda. */
+@media (prefers-reduced-motion: no-preference) {
+  .store-strip-link:is(:hover, :focus-visible) .store-strip-underline {
+    animation: store-strip-underline-redraw 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes store-strip-underline-redraw {
+  0% { transform: scaleX(1); transform-origin: right center; }
+  45% { transform: scaleX(0); transform-origin: right center; }
+  46% { transform: scaleX(0); transform-origin: left center; }
+  100% { transform: scaleX(1); transform-origin: left center; }
+}
