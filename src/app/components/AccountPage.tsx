@@ -31,7 +31,7 @@ export function AccountPage({ user, favorites, onLogin, children, accessToken, o
           <>
             <h1 className="font-serif text-3xl font-bold">Área de clientes</h1>
             <p className="mt-4 text-muted-foreground">Entre com uma conta de cliente para acessar esta página.</p>
-            {!user && <button onClick={onLogin} className="mt-6 px-5 py-2 rounded-lg bg-primary text-primary-foreground">Entrar</button>}
+            {!user && <button onClick={onLogin} className="mt-6 px-5 py-2 rounded-sm bg-muted text-primary border border-primary px-4 py-2 disabled:opacity-50 cursor-pointer hover:bg-primary hover:text-primary-foreground">Entrar</button>}
           </>
         )}
       </section>
@@ -40,7 +40,7 @@ export function AccountPage({ user, favorites, onLogin, children, accessToken, o
 }
 
 const inputClass = "mt-1 w-full min-w-0 rounded-lg border border-border bg-input-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
-const buttonClass = "rounded-lg bg-primary px-5 py-2 text-primary-foreground disabled:opacity-50";
+const buttonClass = "rounded-sm bg-muted text-primary border border-primary px-4 py-2 disabled:opacity-50 cursor-pointer hover:bg-primary hover:text-primary-foreground";
 const addressFields: { key: keyof Address; label: string; max: number; autoComplete: string }[] = [
   { key: "cep", label: "CEP", max: 9, autoComplete: "postal-code" },
   { key: "street", label: "Rua / Logradouro", max: 200, autoComplete: "address-line1" },
