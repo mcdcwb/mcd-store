@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type FormEvent } from "react";
 import { Link, useLocation } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import type { Account } from "../lib/auth";
@@ -10,12 +10,15 @@ export function AccountPage({ user, favorites, onLogin, children, accessToken, o
 }) {
   const location = useLocation();
   const checkoutReturn = !favorites && new URLSearchParams(location.search).get("returnTo") === "/checkout";
+  const showsAccount = !!user && (favorites || user.role === "USER");
+  // Volta ao topo ao abrir Favoritos, Minha Conta ou a Área de clientes (como Checkout e Meus Pedidos).
+  useLayoutEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }, [location.pathname, showsAccount]);
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-16 min-h-[60vh]">
       <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"><ArrowLeft aria-hidden="true" size={16} className="mr-2" />Voltar para a loja</Link>
       {checkoutReturn && user?.role === "USER" && <Link to="/checkout" className="ml-4 inline-flex min-h-11 items-center text-sm text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Voltar ao checkout</Link>}
       <section className="mt-8 p-6 sm:p-8 bg-card border border-border rounded-xl">
-        {user && (favorites || user.role === "USER") ? (
+        {showsAccount ? (
           <>
             <h1 className="font-serif text-3xl font-bold">{favorites ? "Favoritos" : "Minha Conta"}</h1>
             <p className="mt-4 text-muted-foreground">{favorites
