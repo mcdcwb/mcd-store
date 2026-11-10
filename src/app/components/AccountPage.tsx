@@ -45,7 +45,7 @@ const addressFields: { key: keyof Address; label: string; max: number; autoCompl
   { key: "cep", label: "CEP", max: 9, autoComplete: "postal-code" },
   { key: "street", label: "Rua / Logradouro", max: 200, autoComplete: "address-line1" },
   { key: "number", label: "Número", max: 20, autoComplete: "off" },
-  { key: "complement", label: "Complemento", max: 100, autoComplete: "address-line2" },
+  { key: "complement", label: "Complemento (opcional)", max: 100, autoComplete: "address-line2" },
   { key: "neighborhood", label: "Bairro", max: 100, autoComplete: "off" },
   { key: "city", label: "Cidade", max: 100, autoComplete: "address-level2" },
   { key: "state", label: "Estado / UF", max: 2, autoComplete: "address-level1" }
@@ -155,7 +155,7 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
           </section>
           <section aria-labelledby="address-title" className="space-y-4">
             <h2 id="address-title" className="font-serif text-xl font-bold">Endereço</h2>
-            <p className="text-sm text-muted-foreground">Opcional. Se preencher, informe o endereço completo. Complemento é opcional.</p>
+            <p className="text-sm text-muted-foreground">Opcional. Se preencher, informe o endereço completo.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {addressFields.map(field => <label key={field.key} className="block min-w-0 text-sm font-medium">{field.label}
                 <input className={inputClass} value={address[field.key]} maxLength={field.max} autoComplete={field.autoComplete}

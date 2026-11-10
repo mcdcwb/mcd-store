@@ -42,9 +42,9 @@ test("CEP fills editable fields without touching number/complement; address pers
   await page.route("https://viacep.com.br/**", async route => { requests++; await route.fulfill({ json: viaCep }); });
   await login(page, "address");
   const labels = page.locator('section[aria-labelledby="address-title"] label');
-  await expect(labels).toHaveText(["CEP", "Rua / Logradouro", "Número", "Complemento", "Bairro", "Cidade", "Estado / UF"]);
+  await expect(labels).toHaveText(["CEP", "Rua / Logradouro", "Número", "Complemento (opcional)", "Bairro", "Cidade", "Estado / UF"]);
   await page.getByLabel("Número", { exact: true }).fill("15");
-  await page.getByLabel("Complemento", { exact: true }).fill("Apto 7");
+  await page.getByLabel("Complemento (opcional)", { exact: true }).fill("Apto 7");
   await page.getByLabel("CEP", { exact: true }).fill("01001");
   await page.getByLabel("CEP", { exact: true }).fill("01001000");
   await expect(page.getByLabel("CEP", { exact: true })).toHaveValue("01001-000");
@@ -53,7 +53,7 @@ test("CEP fills editable fields without touching number/complement; address pers
   await expect(page.getByLabel("Cidade", { exact: true })).toHaveValue("São Paulo");
   await expect(page.getByLabel("Estado / UF")).toHaveValue("SP");
   await expect(page.getByLabel("Número", { exact: true })).toHaveValue("15");
-  await expect(page.getByLabel("Complemento", { exact: true })).toHaveValue("Apto 7");
+  await expect(page.getByLabel("Complemento (opcional)", { exact: true })).toHaveValue("Apto 7");
   expect(requests).toBe(1);
   await page.getByLabel("Rua / Logradouro").fill("Rua corrigida");
   await save(page);
@@ -63,7 +63,7 @@ test("CEP fills editable fields without touching number/complement; address pers
   await expect(page.getByLabel("Rua / Logradouro")).toHaveValue("Rua corrigida");
   expect(requests).toBe(1); // Loading a saved address does not query or overwrite it.
   await page.getByLabel("Número", { exact: true }).fill("17");
-  await page.getByLabel("Complemento", { exact: true }).fill("");
+  await page.getByLabel("Complemento (opcional)", { exact: true }).fill("");
   await save(page);
   await expect(page.getByText("Alteração salva.", { exact: true })).toBeVisible();
   expect((await profile(page)).address.complement).toBe("");
