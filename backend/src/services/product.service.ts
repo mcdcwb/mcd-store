@@ -65,7 +65,7 @@ export async function setCarouselOrder(productIds: number[]) {
         await lockCarouselSelection(tx);
         const selected = await tx.product.findMany({ where: { inCarousel: true }, select: { id: true } });
         if (selected.length !== productIds.length || selected.some(product => !productIds.includes(product.id)))
-            throw new ProductError(409, "A seleÃ§Ã£o do carrossel mudou. Atualize a pÃ¡gina e tente novamente.");
+            throw new ProductError(409, "A seleção do carrossel mudou. Atualize a página e tente novamente.");
         for (const [carouselPosition, id] of productIds.entries())
             await tx.product.update({ where: { id }, data: { carouselPosition } });
         return tx.product.findMany({ where: { id: { in: productIds } }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], include: productInclude });

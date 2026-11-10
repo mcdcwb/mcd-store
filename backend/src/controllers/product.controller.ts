@@ -23,7 +23,7 @@ export async function setProductCarousel(req: Request, res: Response, next: Next
 
 export async function setCarouselOrder(req: Request, res: Response, next: NextFunction) {
     const result = carouselOrderSchema.safeParse(req.body);
-    if (!result.success) return res.status(400).json({ error: "Informe a sequÃªncia vÃ¡lida dos produtos do carrossel.", errors: result.error.issues });
+    if (!result.success) return res.status(400).json({ error: "Informe a sequência válida dos produtos do carrossel.", errors: result.error.issues });
     try {
         return res.json(await productService.setCarouselOrder(result.data.productIds));
     } catch (error) {

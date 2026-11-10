@@ -1,7 +1,10 @@
 import type { Category } from "../lib/categories";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { ArrowDown, ArrowUp, GalleryHorizontalEnd, GripVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type Announcements, type DragEndEvent, type Modifier, type UniqueIdentifier } from "@dnd-kit/core";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ArrowDown, ArrowUp, GalleryHorizontalEnd, GripVertical, Info, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { ProductImage } from "../components/ProductImage";
 import { Button } from "../components/ui/button";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "../components/ui/alert-dialog";
@@ -12,8 +15,39 @@ export function StockBadge({ product }: { product: ManagedProduct }) {
   const label = getProductVariants(product).length === 0 ? "Sem variantes" : empty ? "Sem estoque" : "Disponível";
   return <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${empty ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>{label}</span>;
 }
+// A lista do carrossel só se move na vertical.
+const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
+
+type CarouselItemProps = { product: ManagedProduct; index: number; total: number; busy: boolean; onUp?: () => void; onDown?: () => void };
+// Conteúdo do item (usado na lista e no card flutuante do DragOverlay).
+function CarouselItemCard({ product, index, total, busy, onUp, onDown, overlay = false, handle }: CarouselItemProps & { overlay?: boolean; handle?: React.ReactNode }) {
+  return <div className={`flex min-w-0 items-center gap-3 rounded-lg border bg-background p-2.5 ${overlay ? "cursor-grabbing border-primary shadow-lg ring-2 ring-primary/30" : "border-border"}`}>
+    <span aria-label={`Posição ${index + 1}`} className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{index + 1}</span>
+    {handle ?? <span aria-hidden="true" className="grid size-9 place-items-center text-muted-foreground"><GripVertical size={18} /></span>}
+    <ProductImage src={product.colors[0]?.imageUrl || product.colors[0]?.images[0]} alt="" className="h-12 w-10 shrink-0 rounded object-cover bg-muted" />
+    <span className="min-w-0 flex-1 break-words text-sm font-medium">{product.name}</span>
+    <div className="flex shrink-0 gap-1">
+      <button type="button" aria-label={`Mover ${product.name} para cima`} disabled={busy || index === 0} onClick={onUp} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowUp size={16} /></button>
+      <button type="button" aria-label={`Mover ${product.name} para baixo`} disabled={busy || index === total - 1} onClick={onDown} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowDown size={16} /></button>
+    </div>
+  </div>;
+}
+// Item ordenável: listeners/attributes só na alça (6 pontos); enquanto arrasta, a posição de origem vira
+// um marcador tracejado (placeholder) e os demais itens deslizam com a transição do dnd-kit.
+function SortableCarouselItem(props: CarouselItemProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.product.id, attributes: { roleDescription: "item reordenável" } });
+  return <li ref={setNodeRef} data-carousel-item={props.product.id} style={{ transform: CSS.Transform.toString(transform), transition }}
+    className={isDragging ? "rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 [&>*]:invisible" : undefined}>
+    <CarouselItemCard {...props} handle={<button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Arraste para reordenar ${props.product.name}`}
+      className="grid size-9 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted-foreground hover:bg-muted active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+      <GripVertical aria-hidden="true" size={18} />
+    </button>} />
+  </li>;
+}
+
 export function ProductList({ categories, threshold, products, busy, error, onDelete, onCarousel, onCarouselOrder }: { categories: Category[]; threshold: number; products: ManagedProduct[]; busy: boolean; error: string | null; onDelete: (id: number) => Promise<boolean>; onCarousel: (id: number, selected: boolean) => Promise<boolean>; onCarouselOrder: (productIds: number[]) => Promise<boolean> }) {
   const [params, setParams] = useSearchParams();
+  const publicationHelpId = useId();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(() => params.get("categoria") ?? "");
   const [audience, setAudience] = useState("");
@@ -24,7 +58,18 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
   const savedIds = carouselProducts.map(product => product.id);
   const [draftOrder, setDraftOrder] = useState<number[]>(savedIds);
   const [savedOrder, setSavedOrder] = useState(savedIds.join(","));
-  const draggedId = useRef<number | null>(null);
+  // Arraste (dnd-kit): mouse/toque pela alça (PointerSensor) e teclado (espaço pega, setas movem,
+  // espaço solta, Esc cancela). A ordem só muda no rascunho; o banco só em "Salvar ordem".
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  const [activeId, setActiveId] = useState<number | null>(null);
+  useEffect(() => {
+    if (activeId === null) return;
+    document.body.style.cursor = "grabbing";
+    return () => { document.body.style.cursor = ""; };
+  }, [activeId]);
   useEffect(() => {
     setDraftOrder(savedIds);
     setSavedOrder(savedIds.join(","));
@@ -45,6 +90,21 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
   const currentDraft = draftOrder.filter(id => savedIds.includes(id));
   const displayedOrder = [...currentDraft, ...savedIds.filter(id => !currentDraft.includes(id))];
   const hasOrderChanges = displayedOrder.join(",") !== savedOrder;
+  const productName = (id: UniqueIdentifier) => carouselProducts.find(item => item.id === Number(id))?.name ?? "Produto";
+  const positionOf = (id: UniqueIdentifier) => displayedOrder.indexOf(Number(id)) + 1;
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `${productName(active.id)} selecionado, na posição ${positionOf(active.id)} de ${displayedOrder.length}.`,
+    onDragOver: ({ active, over }) => over ? `${productName(active.id)} sobre a posição ${positionOf(over.id)} de ${displayedOrder.length}.` : `${productName(active.id)} fora da lista.`,
+    onDragEnd: ({ active, over }) => over ? `${productName(active.id)} solto na posição ${positionOf(over.id)} de ${displayedOrder.length}. Clique em Salvar ordem para gravar.` : `${productName(active.id)} solto fora da lista; ordem mantida.`,
+    onDragCancel: ({ active }) => `Movimento cancelado. ${productName(active.id)} voltou para a posição ${positionOf(active.id)}.`,
+  };
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    setActiveId(null);
+    if (!over || active.id === over.id) return;
+    const from = displayedOrder.indexOf(Number(active.id)), to = displayedOrder.indexOf(Number(over.id));
+    if (from >= 0 && to >= 0) setDraftOrder(arrayMove(displayedOrder, from, to));
+  }
+  const activeProduct = activeId === null ? undefined : carouselProducts.find(item => item.id === activeId);
   useEffect(() => { if (category && !categories.some(c => String(c.id) === category)) setCategoryFilter(""); }, [categories, category]);
   useEffect(() => { const nextCategory = params.get("categoria") ?? ""; if (nextCategory !== category) setCategory(nextCategory); }, [params, category]);
   function setCategoryFilter(value: string) {
@@ -81,44 +141,29 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
     </div>
     {carouselProducts.length > 0 && <section aria-labelledby="carousel-order-title" className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 id="carousel-order-title" className="text-lg font-semibold">Ordem do carrossel</h2><p className="mt-1 text-sm text-muted-foreground">Arraste os produtos para reorganizar. Use os botÃµes de seta para ajustar a posiÃ§Ã£o.</p></div>
-        {hasOrderChanges && <Button type="button" disabled={busy} onClick={async () => {
-          if (await onCarouselOrder(displayedOrder)) setSavedOrder(displayedOrder.join(","));
-        }}>Salvar ordem</Button>}
+        <div><h2 id="carousel-order-title" className="text-lg font-semibold">Ordem do carrossel</h2><p className="mt-1 text-sm text-muted-foreground">Arraste os produtos para reorganizar. Use os botões de seta para ajustar a posição.</p></div>
+        {hasOrderChanges && <div className="flex flex-wrap items-center gap-2">
+          <span role="status" className="text-sm font-medium text-amber-700">Ordem alterada, ainda não salva</span>
+          <Button type="button" disabled={busy} className="ring-2 ring-amber-400 ring-offset-2 ring-offset-card" onClick={async () => {
+            if (await onCarouselOrder(displayedOrder)) setSavedOrder(displayedOrder.join(","));
+          }}>Salvar ordem</Button>
+        </div>}
       </div>
-      <ol className="mt-4 space-y-2">
-        {displayedOrder.map((id, index) => {
-          const product = carouselProducts.find(item => item.id === id);
-          if (!product) return null;
-          return <li key={product.id} data-carousel-item={product.id} draggable onDragStart={event => {
-            draggedId.current = product.id;
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("text/plain", String(product.id));
-          }} onDragOver={event => {
-            event.preventDefault();
-            if (draggedId.current !== null) moveCarouselItem(draggedId.current, product.id);
-          }} onDrop={event => { event.preventDefault(); draggedId.current = null; }} onDragEnd={() => { draggedId.current = null; }}
-            className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-background p-2.5">
-            <span aria-label={`PosiÃ§Ã£o ${index + 1}`} className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{index + 1}</span>
-            <span aria-label="Arraste para reordenar" className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing" onPointerDown={event => {
-              if (event.pointerType === "touch") { draggedId.current = product.id; event.currentTarget.setPointerCapture(event.pointerId); }
-            }} onPointerMove={event => {
-              if (event.pointerType !== "touch" || draggedId.current === null) return;
-              const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-carousel-item]");
-              const targetId = Number(target?.dataset.carouselItem);
-              if (Number.isSafeInteger(targetId)) moveCarouselItem(draggedId.current, targetId);
-            }} onPointerUp={() => { draggedId.current = null; }} onPointerCancel={() => { draggedId.current = null; }}>
-              <GripVertical aria-hidden="true" size={18} />
-            </span>
-            <ProductImage src={product.colors[0]?.imageUrl || product.colors[0]?.images[0]} alt="" className="h-12 w-10 shrink-0 rounded object-cover bg-muted" />
-            <span className="min-w-0 flex-1 break-words text-sm font-medium">{product.name}</span>
-            <div className="flex shrink-0 gap-1">
-              <button type="button" aria-label={`Mover ${product.name} para cima`} disabled={busy || index === 0} onClick={() => moveCarouselItem(product.id, displayedOrder[index - 1]!)} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowUp size={16} /></button>
-              <button type="button" aria-label={`Mover ${product.name} para baixo`} disabled={busy || index === displayedOrder.length - 1} onClick={() => moveCarouselItem(product.id, displayedOrder[index + 1]!)} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowDown size={16} /></button>
-            </div>
-          </li>;
-        })}
-      </ol>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis]}
+        accessibility={{ announcements, screenReaderInstructions: { draggable: "Para reordenar, pressione espaço para pegar o produto, use as setas para cima e para baixo para mover, espaço para soltar ou Esc para cancelar." } }}
+        onDragStart={({ active }) => setActiveId(Number(active.id))} onDragEnd={handleDragEnd} onDragCancel={() => setActiveId(null)}>
+        <SortableContext items={displayedOrder} strategy={verticalListSortingStrategy}>
+          <ol className="mt-4 space-y-2">
+            {displayedOrder.map((id, index) => {
+              const product = carouselProducts.find(item => item.id === id);
+              if (!product) return null;
+              return <SortableCarouselItem key={product.id} product={product} index={index} total={displayedOrder.length} busy={busy}
+                onUp={() => moveCarouselItem(product.id, displayedOrder[index - 1]!)} onDown={() => moveCarouselItem(product.id, displayedOrder[index + 1]!)} />;
+            })}
+          </ol>
+        </SortableContext>
+        <DragOverlay>{activeProduct && <CarouselItemCard product={activeProduct} index={displayedOrder.indexOf(activeProduct.id)} total={displayedOrder.length} busy overlay />}</DragOverlay>
+      </DndContext>
     </section>}
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 rounded-xl border border-border bg-card p-4 mb-5">
       <label className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2"><Search size={14} />Buscar por nome</span><input type="search" value={search} onChange={event => setSearch(event.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2" placeholder="Nome do produto" /></label>
@@ -126,7 +171,16 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
       <label className="flex flex-col gap-2 text-sm"><span>Público</span><select aria-label="Público" value={audience} onChange={event => setAudience(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Todos os públicos</option>{[...new Set(products.map(p => p.public))].map(value => <option key={value} value={value}>{labels[value] ?? value}</option>)}</select></label>
       <label className="flex min-w-0 flex-col gap-2 text-sm xl:col-span-2"><span>Estoque</span><select aria-label="Estoque" value={stock} onChange={event => setStock(event.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2"><option value="">Todos os estoques</option>{Object.entries(stockFilterLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label className="flex items-center gap-2 self-end h-10 text-sm whitespace-nowrap"><input type="checkbox" checked={onlyCarousel} onChange={event => setOnlyCarousel(event.target.checked)} className="size-4 accent-primary" />Apenas itens do carrossel</label>
-      <label className="flex flex-col gap-2 text-sm"><span>Publicação</span><select aria-label="Publicação" value={publication} onChange={event => setPublication(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Todas as publicações</option><option value="published">Publicados</option><option value="hidden">Não publicados</option></select></label>
+      {/* "Publicação" + ajuda. A 1ª coluna interna tem exatamente a largura de uma coluna da grade
+          ((100% - gap) / 2 de um bloco que ocupa 2 colunas), então nenhum filtro muda de largura.
+          ≥1024px: ajuda à direita, alinhada ao select; abaixo disso, embaixo do filtro, na largura toda. */}
+      <div className="grid gap-3 sm:col-span-2 sm:grid-cols-[calc((100%-0.75rem)/2)_minmax(0,1fr)]">
+      <label className="flex flex-col gap-2 text-sm"><span>Publicação</span><select aria-label="Publicação" aria-describedby={publicationHelpId} value={publication} onChange={event => setPublication(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Todas as publicações</option><option value="published">Publicados</option><option value="hidden">Não publicados</option></select></label>
+      <p id={publicationHelpId} className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-[13px] leading-5 text-muted-foreground sm:col-span-2 lg:col-span-1 lg:mt-7 lg:max-w-[420px] lg:self-start">
+        <Info aria-hidden="true" size={15} className="mt-[3px] shrink-0" />
+        <span><span className="font-semibold text-foreground/80">Só produtos publicados aparecem no catálogo da loja.</span> Para exibir um produto apenas no carrossel, deixe-o como “Não publicado”.</span>
+      </p>
+      </div>
     </div>
     {stock && <div className="flex flex-wrap items-center gap-2 mb-4 text-sm"><span className="rounded-full bg-primary/10 text-primary px-3 py-1">Filtro: {stockFilterLabels[stock]}</span><button type="button" onClick={() => setStock("")} className="min-h-11 px-2 text-primary underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Remover filtro de estoque</button></div>}
     <p className="mb-3 text-sm text-muted-foreground">{visible.length} produto(s)</p>
