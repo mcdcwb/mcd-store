@@ -136,7 +136,10 @@ test("catalog/details switch images and sizes; multi-color guest cart merges and
     await expect(page.getByRole("status")).toContainText("Carrinho de visitante sincronizado");
     await card.evaluate(element => window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 120)); await card.getByRole("img").hover(); await card.getByRole("button", { name: "Favoritar", exact: true }).click();
     await expect(card.getByRole("button", { name: "Remover dos favoritos" })).toBeVisible();
+    // O favorito do card é da cor exibida: trocar de cor mostra o coração vazio; voltar mostra cheio.
     await card.getByRole("button", { name: "Branco", exact: true }).click();
+    await expect(card.getByRole("button", { name: "Favoritar", exact: true })).toBeVisible();
+    await card.getByRole("button", { name: "Preto", exact: true }).click();
     await expect(card.getByRole("button", { name: "Remover dos favoritos" })).toBeVisible();
     await page.getByRole("button", { name: "Cliente", exact: true }).click(); await page.getByRole("button", { name: "Sair", exact: true }).click();
     await login(page); await page.reload();

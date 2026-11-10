@@ -9,6 +9,14 @@ import { manualBadgeDimensions } from "./ProductBadge";
 import { formatPrice, sizeButtonClass } from "../lib/presentation";
 import { selectProductColor, stockFor, type Product, type Size } from "../lib/products";
 
+// Favoritar trabalha com a combinação produto + cor + tamanho (null = não escolhido).
+export interface FavoriteControls {
+  isFavorite: (productId: number, colorId: number | null, size: string | null) => boolean;
+  onFavorite: (productId: number, colorId: number | null, size: string | null) => void;
+  favoritePending: (productId: number, colorId: number | null, size: string | null) => boolean;
+  favoriteBusy: (productId: number, colorId: number | null, size: string | null) => boolean;
+}
+
 export function ColorSelector({ product, onSelect, card = false }: { product: Product; onSelect: (id: number) => void; card?: boolean }) {
   return <div className="space-y-2"><p className="text-sm">Cor: <span className="font-medium">{product.color.name}</span></p>
     <div className="flex gap-2 flex-wrap" role="group" aria-label="Selecionar cor">
@@ -25,7 +33,7 @@ export function ColorSelector({ product, onSelect, card = false }: { product: Pr
 export function ProductDetailPage({
   product: baseProduct,
   stockSettings,
-  recommendations, onOpenProduct, favorites, onFavorite, favoritePending, favoriteBusy,
+  recommendations, onOpenProduct, favorite,
   onBack,
   onAddToCart,
   addState,
@@ -35,24 +43,24 @@ export function ProductDetailPage({
   stockSettings: StockBadgeSettings | null;
   recommendations: Product[];
   onOpenProduct: (product: Product) => void;
-  favorites: Product[];
-  onFavorite: (id: number) => void;
-  favoritePending: (id: number) => boolean;
-  favoriteBusy: (id: number) => boolean;
+  favorite: FavoriteControls;
   onBack: () => void;
   onAddToCart: (p: Product, s: Size) => Promise<boolean>;
   addState: GetAddState;
   availableStock: (p: Product, s: Size) => number;
 }) {
   const [selectedColorId, setSelectedColorId] = useState(() => { const id = Number(new URLSearchParams(window.location.search).get("colorId")); return baseProduct.colors.some(c => c.id === id) ? id : baseProduct.colorId; });
+  // ?tamanho=M (vindo dos Favoritos) pré-seleciona o tamanho se ele existir e tiver estoque nessa cor.
+  const [initialSize] = useState(() => new URLSearchParams(window.location.search).get("tamanho"));
   const [badgeColorId, setBadgeColorId] = useState<number | null>(null);
   const product = selectProductColor(baseProduct, baseProduct.colors.some(c => c.id === selectedColorId) ? selectedColorId : baseProduct.colors[0].id);
 
   const productImages = product.images && product.images.length > 0 ? product.images : [product.imageUrl];
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [selectedSize, setSelectedSize] = useState<Size | null>(null);
+  const [selectedSize, setSelectedSize] = useState<Size | null>(() => initialSize && product.sizes.includes(initialSize) && availableStock(product, initialSize) > 0 ? initialSize : null);
   const additionState = addState(product, selectedSize);
   const added = additionState === "added";
+  const favoriteArgs = [baseProduct.id, product.colorId, selectedSize] as const;
 
   return (
     <div className="store-product-detail min-h-screen bg-background text-foreground">
@@ -78,8 +86,8 @@ export function ProductDetailPage({
                 />
               </div>
               <ProductBadges size="detail" product={baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} />
-              <ProductFavoriteButton liked={favorites.some(favorite => favorite.id === baseProduct.id)}
-                onFavorite={() => onFavorite(baseProduct.id)} favoritePending={favoritePending(baseProduct.id)} favoriteBusy={favoriteBusy(baseProduct.id)} />
+              <ProductFavoriteButton liked={favorite.isFavorite(...favoriteArgs)}
+                onFavorite={() => favorite.onFavorite(...favoriteArgs)} favoritePending={favorite.favoritePending(...favoriteArgs)} favoriteBusy={favorite.favoriteBusy(...favoriteArgs)} />
             </div>
 
             {productImages.length > 1 && (
@@ -174,8 +182,7 @@ export function ProductDetailPage({
           <h2 id="related-products-title" className="mb-6 font-serif text-2xl font-bold tracking-wide">VEJA TAMBÉM</h2>
           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4">
             {recommendations.map(related => <ProductCard key={related.id} product={related} stockSettings={stockSettings}
-              liked={favorites.some(favorite => favorite.id === related.id)} onFavorite={() => onFavorite(related.id)}
-              favoritePending={favoritePending(related.id)} favoriteBusy={favoriteBusy(related.id)}
+              favorite={favorite}
               availableStock={availableStock} onAddToCart={onAddToCart} addState={addState} onOpenProduct={onOpenProduct} />)}
           </div>
         </section>}
@@ -188,14 +195,14 @@ export function ProductDetailPage({
 // ─── Product Card ─────────────────────────────────────────────────────────────
 
 export function ProductCard({
-  liked, onFavorite, favoriteBusy, favoritePending, stockSettings,
+  favorite, stockSettings,
   product: baseProduct, badgeProduct,
   onAddToCart,
   addState,
   availableStock,
   onOpenProduct,
 }: {
-  liked: boolean; onFavorite: () => void; favoriteBusy: boolean; favoritePending: boolean;
+  favorite: FavoriteControls;
   product: Product;
   badgeProduct?: Product;
   stockSettings: StockBadgeSettings | null;
@@ -299,7 +306,9 @@ export function ProductCard({
         )}
         <ProductBadges product={badgeProduct ?? baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} />
         {/* Wishlist */}
-        <ProductFavoriteButton liked={liked} onFavorite={onFavorite} favoriteBusy={favoriteBusy} favoritePending={favoritePending} />
+        {/* No card o favorito usa a cor exibida, sem tamanho. */}
+        <ProductFavoriteButton liked={favorite.isFavorite(baseProduct.id, product.colorId, null)} onFavorite={() => favorite.onFavorite(baseProduct.id, product.colorId, null)}
+          favoriteBusy={favorite.favoriteBusy(baseProduct.id, product.colorId, null)} favoritePending={favorite.favoritePending(baseProduct.id, product.colorId, null)} />
       </div>
 
       {/* Info */}

@@ -68,6 +68,8 @@ model ProductColor {
   images String[]
   position Int @default(0)
   variants ProductVariant[]
+  favorites Favorite[]
+  adminFavorites AdminFavorite[]
   @@index([productId])
 }
 
@@ -119,22 +121,35 @@ model UserAddress {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Um favorito é a combinação produto + cor + tamanho escolhida. colorId e size
+// são opcionais (favoritos antigos, ou cor sem tamanho). A unicidade usa
+// NULLS NOT DISTINCT no SQL da migration: o Prisma não expressa isso no schema.
 model Favorite {
+  id Int @id @default(autoincrement())
   userId Int
   productId Int
+  colorId Int?
+  size String?
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  @@id([userId, productId])
+  color ProductColor? @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  @@unique([userId, productId, colorId, size])
   @@index([productId])
+  @@index([colorId])
 }
 
 model AdminFavorite {
+  id Int @id @default(autoincrement())
   adminId Int
   productId Int
+  colorId Int?
+  size String?
   admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  @@id([adminId, productId])
+  color ProductColor? @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  @@unique([adminId, productId, colorId, size])
   @@index([productId])
+  @@index([colorId])
 }
 
 model CartItem {

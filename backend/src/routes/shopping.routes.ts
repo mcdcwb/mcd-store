@@ -9,6 +9,8 @@ router.use("/carrinho", (_req, res, next) => {
     next();
 });
 router.get("/favoritos", shopping("favorites"));
+router.post("/favoritos", shopping("favorite"));
+router.delete("/favoritos", shopping("unfavorite"));
 router.put("/favoritos/:productId", shopping("favorite"));
 router.delete("/favoritos/:productId", shopping("unfavorite"));
 router.get("/carrinho", shopping("read"));

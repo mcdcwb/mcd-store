@@ -112,7 +112,7 @@ for (const role of ["USER", "ADMIN"]) test(`unpublished and stale favorites cann
   await page.route("**/api/auth/me", route => route.fulfill({ json: { account } }));
   await page.route("**/api/produtos", route => route.fulfill({ json: [published] }));
   await page.route("**/api/produtos/carrossel", route => route.fulfill({ json: [published, draft] }));
-  await page.route("**/api/favoritos", route => route.fulfill({ json: [published, draft, stale].map(product => ({ product })) }));
+  await page.route("**/api/favoritos", route => route.fulfill({ json: [published, draft, stale].map((product, index) => ({ id: index + 1, product, colorId: null, size: null })) }));
   await page.route("**/api/carrinho", route => route.fulfill({ json: { items: [], notices: [] } }));
   await page.goto("/favoritos");
   await expect(page.getByRole("heading", { name: "Favoritos", exact: true })).toBeVisible();

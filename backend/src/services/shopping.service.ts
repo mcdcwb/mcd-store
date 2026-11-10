@@ -5,18 +5,38 @@ import { Prisma } from "../generated/prisma/client.js";
 export class ShoppingError extends Error {
     constructor(public status: number, message: string) { super(message); }
 }
-type FavoriteOwner = { id: number; role: "USER" | "ADMIN" };
-export const favorites = (owner: FavoriteOwner) => owner.role === "ADMIN"
-    ? prisma.adminFavorite.findMany({ where: { adminId: owner.id, product: { isPublished: true } }, include: { product: { include: productInclude } }, orderBy: { productId: "asc" } })
-    : prisma.favorite.findMany({ where: { userId: owner.id, product: { isPublished: true } }, include: { product: { include: productInclude } }, orderBy: { productId: "asc" } });
-export async function favorite(owner: FavoriteOwner, productId: number, remove = false) {
-    if (!remove && !await prisma.product.findFirst({ where: { id: productId, isPublished: true } })) throw new ShoppingError(404, "Produto não encontrado.");
-    if (owner.role === "ADMIN") {
-        if (remove) await prisma.adminFavorite.deleteMany({ where: { adminId: owner.id, productId } });
-        else await prisma.adminFavorite.upsert({ where: { adminId_productId: { adminId: owner.id, productId } }, create: { adminId: owner.id, productId }, update: {} });
-    } else {
-        if (remove) await prisma.favorite.deleteMany({ where: { userId: owner.id, productId } });
-        else await prisma.favorite.upsert({ where: { userId_productId: { userId: owner.id, productId } }, create: { userId: owner.id, productId }, update: {} });
+type FavoriteOwner = { id: number; role: "USER" | "ADMIN" | "DEMO" };
+// A combinação favoritada: cor e tamanho são opcionais (null = não escolhido).
+export type FavoriteSelection = { productId: number; colorId: number | null; size: string | null };
+const favoriteInclude = { product: { include: productInclude }, color: { select: { id: true, colorName: true, colorValue: true, imageUrl: true, images: true } } } as const;
+// ADMIN e DEMO usam a tabela de favoritos administrativos (o DEMO só lê; escritas são bloqueadas).
+export const favorites = (owner: FavoriteOwner) => owner.role !== "USER"
+    ? prisma.adminFavorite.findMany({ where: { adminId: owner.id, product: { isPublished: true } }, include: favoriteInclude, orderBy: { id: "asc" } })
+    : prisma.favorite.findMany({ where: { userId: owner.id, product: { isPublished: true } }, include: favoriteInclude, orderBy: { id: "asc" } });
+// Valida que a cor pertence ao produto e o tamanho existe nessa cor.
+async function validateFavorite({ productId, colorId, size }: FavoriteSelection) {
+    if (!await prisma.product.findFirst({ where: { id: productId, isPublished: true }, select: { id: true } })) throw new ShoppingError(404, "Produto não encontrado.");
+    if (size !== null && colorId === null) throw new ShoppingError(400, "Selecione a cor antes do tamanho.");
+    if (colorId !== null && !await prisma.productColor.findFirst({ where: { id: colorId, productId }, select: { id: true } })) throw new ShoppingError(404, "Cor não encontrada para este produto.");
+    if (size !== null && !await prisma.productVariant.findFirst({ where: { colorId: colorId!, value: size }, select: { id: true } })) throw new ShoppingError(404, "Tamanho não encontrado para esta cor.");
+}
+// `selection` sem cor/tamanho definidos (undefined) remove todas as combinações do produto (rota antiga).
+export async function favorite(owner: FavoriteOwner, selection: FavoriteSelection | { productId: number; colorId?: undefined; size?: undefined }, remove = false) {
+    const exact = selection.colorId !== undefined;
+    const match = exact ? { productId: selection.productId, colorId: selection.colorId, size: selection.size ?? null } : { productId: selection.productId };
+    if (!remove) await validateFavorite({ productId: selection.productId, colorId: selection.colorId ?? null, size: selection.size ?? null });
+    const data = { productId: selection.productId, colorId: selection.colorId ?? null, size: selection.size ?? null };
+    try {
+        if (owner.role !== "USER") {
+            if (remove) await prisma.adminFavorite.deleteMany({ where: { adminId: owner.id, ...match } });
+            else if (!await prisma.adminFavorite.findFirst({ where: { adminId: owner.id, ...data } })) await prisma.adminFavorite.create({ data: { adminId: owner.id, ...data } });
+        } else {
+            if (remove) await prisma.favorite.deleteMany({ where: { userId: owner.id, ...match } });
+            else if (!await prisma.favorite.findFirst({ where: { userId: owner.id, ...data } })) await prisma.favorite.create({ data: { userId: owner.id, ...data } });
+        }
+    } catch (error) {
+        // Corrida entre duas requisições iguais: o índice único (NULLS NOT DISTINCT) já garante uma só linha.
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
     }
     return favorites(owner);
 }

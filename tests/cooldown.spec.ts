@@ -179,40 +179,42 @@ test("favorite cooldown guards each product, concurrent snapshots and failures",
   const gate = new Promise<void>(resolve => { release = resolve; });
   const calls: string[] = [];
   let fail = false;
-  await page.route("**/api/favoritos/*", async route => {
-    const id = Number(route.request().url().split('/').pop());
+  await harness(page, true);
+  // Registrado depois do harness para ter prioridade sobre o mock genérico de GET.
+  await page.route("**/api/favoritos", async route => {
     const method = route.request().method();
+    if (method === 'GET') return route.fulfill({ json: [] });
+    const id = Number(route.request().postDataJSON().productId);
     calls.push(`${method}:${id}`);
     if (id === 9001 && calls.length === 1) await gate;
     if (fail) return route.fulfill({ status: 503, json: { error: 'Favorite failed' } });
-    await route.fulfill({ json: method === 'PUT' ? [{ product: { ...raw, id } }] : [] });
+    await route.fulfill({ json: method === 'POST' ? [{ id, product: { ...raw, id }, colorId: null, size: null }] : [] });
   });
-  await harness(page, true);
   await page.evaluate(() => {
     const w = window as any;
-    w.favoriteResults = Promise.all([w.shopping.toggleFavorite(9001), w.shopping.toggleFavorite(9001), w.shopping.toggleFavorite(9002)]);
+    w.favoriteResults = Promise.all([w.shopping.toggleFavorite(9001, null, null), w.shopping.toggleFavorite(9001, null, null), w.shopping.toggleFavorite(9002, null, null)]);
   });
   await expect.poll(() => calls.length).toBe(2);
-  expect(calls).toEqual(['PUT:9001', 'PUT:9002']);
+  expect(calls).toEqual(['POST:9001', 'POST:9002']);
   release();
   expect(await page.evaluate(() => (window as any).favoriteResults)).toEqual([true, false, true]);
   await page.clock.runFor(0);
-  expect(await page.evaluate(() => (window as any).shopping.favorites.map((p: any) => p.id).sort())).toEqual([9001, 9002]);
-  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001))).toBe(false);
+  expect(await page.evaluate(() => (window as any).shopping.favorites.map((f: any) => f.product.id).sort())).toEqual([9001, 9002]);
+  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001, null, null))).toBe(false);
   await expect(toasts(page)).toHaveCount(2);
   await page.clock.runFor(999);
-  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001))).toBe(false);
+  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001, null, null))).toBe(false);
   await page.clock.runFor(1);
-  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001))).toBe(true);
+  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001, null, null))).toBe(true);
   await page.clock.runFor(0);
   expect(calls.at(-1)).toBe('DELETE:9001');
-  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001))).toBe(false);
+  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001, null, null))).toBe(false);
   await expect(toasts(page)).toHaveCount(3);
   await page.clock.runFor(1000);
   fail = true;
-  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001))).toBe(false);
-  expect(await page.evaluate(() => (window as any).shopping.favoriteBlocked(9001))).toBe(false);
+  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001, null, null))).toBe(false);
+  expect(await page.evaluate(() => (window as any).shopping.favoriteBlocked('9001::'))).toBe(false);
   await expect(toasts(page)).toHaveCount(3);
   fail = false;
-  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001))).toBe(true);
+  expect(await page.evaluate(() => (window as any).shopping.toggleFavorite(9001, null, null))).toBe(true);
 });

@@ -45,6 +45,42 @@ test("account shopping persists, isolates users and enforces stock in PostgreSQL
             await req(path, "DELETE");
             assert.deepEqual(await (await req("/favoritos")).json(), []);
         });
+        await t.test("favorites store product + color + size combinations without duplicates", async () => {
+            const shirt = await prisma.product.create({ data: { name: "Favorite variants fixture", price: 10, public: "unissex", category: categoryRelation, colors: { create: [
+                { colorName: "Amarelo", colorValue: "#ffcc00", images: ["amarelo.jpg"], position: 0, variants: { create: [{ value: "M", stock: 2 }, { value: "G", stock: 1 }] } },
+                { colorName: "Preto", colorValue: "#111111", images: ["preto.jpg"], position: 1, variants: { create: [{ value: "G", stock: 1 }] } }] } }, include: { colors: { orderBy: { position: "asc" } } } });
+            const [yellow, black] = shirt.colors;
+            const otherColor = (await prisma.productColor.findFirstOrThrow({ where: { productId } })).id;
+            const list = async () => (await (await req("/favoritos")).json()) as { productId: number; colorId: number | null; size: string | null; color: { colorName: string; images: string[] } | null }[];
+            const combos = async () => (await list()).filter(f => f.productId === shirt.id).map(f => `${f.color?.colorName ?? "-"}/${f.size ?? "-"}`).sort();
+            try {
+                for (const body of [{ colorId: yellow.id, size: "M" }, { colorId: yellow.id }, { colorId: black.id, size: "G" }])
+                    assert.equal((await req("/favoritos", "POST", { productId: shirt.id, ...body })).status, 200);
+                assert.deepEqual(await combos(), ["Amarelo/-", "Amarelo/M", "Preto/G"]);
+                const saved = (await list()).find(f => f.colorId === yellow.id && f.size === "M");
+                assert.deepEqual(saved?.color?.images, ["amarelo.jpg"]);
+                // Same exact combination (including "color without size") never repeats, even concurrently.
+                const again = await Promise.all([{ colorId: yellow.id, size: "M" }, { colorId: yellow.id, size: "M" }, { colorId: yellow.id }, { colorId: yellow.id, size: null }]
+                    .map(body => req("/favoritos", "POST", { productId: shirt.id, ...body })));
+                assert.deepEqual(again.map(r => r.status), [200, 200, 200, 200]);
+                assert.deepEqual(await combos(), ["Amarelo/-", "Amarelo/M", "Preto/G"]);
+                const userA = await prisma.user.findUniqueOrThrow({ where: { email: emails[0] } });
+                await assert.rejects(prisma.favorite.create({ data: { userId: userA.id, productId: shirt.id, colorId: yellow.id, size: null } }), (e: { code?: string }) => e.code === "P2002");
+                // Color and size must belong to the product.
+                assert.equal((await req("/favoritos", "POST", { productId: shirt.id, colorId: otherColor })).status, 404);
+                assert.equal((await req("/favoritos", "POST", { productId: shirt.id, colorId: black.id, size: "M" })).status, 404);
+                assert.equal((await req("/favoritos", "POST", { productId: shirt.id, size: "M" })).status, 400);
+                // Removing only Amarelo M keeps the other combinations.
+                assert.equal((await req("/favoritos", "DELETE", { productId: shirt.id, colorId: yellow.id, size: "M" })).status, 200);
+                assert.deepEqual(await combos(), ["Amarelo/-", "Preto/G"]);
+                // A removed size keeps the favorite (shown as unavailable); a removed color deletes its favorites.
+                await req("/favoritos", "POST", { productId: shirt.id, colorId: yellow.id, size: "G" });
+                await prisma.productVariant.deleteMany({ where: { colorId: yellow.id, value: "G" } });
+                assert.deepEqual(await combos(), ["Amarelo/-", "Amarelo/G", "Preto/G"]);
+                await prisma.productColor.delete({ where: { id: black.id } });
+                assert.deepEqual(await combos(), ["Amarelo/-", "Amarelo/G"]);
+            } finally { await prisma.product.delete({ where: { id: shirt.id } }); }
+        });
         await t.test("cart adds variants, changes quantities and survives login", async () => {
             assert.equal((await req("/carrinho", "POST", selection)).status, 200);
             assert.equal((await req("/carrinho", "PATCH", { ...selection, quantity: 2 })).status, 200);

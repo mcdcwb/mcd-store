@@ -5,8 +5,23 @@ import { notify } from "../lib/notifications";
 import { adaptProduct, selectProductColor, stockFor, type Product } from "../lib/products";
 import type { Account } from "../lib/auth";
 import { AUTH_STORAGE_KEY } from "../lib/auth-session";
+import { announceDemoBlock } from "../lib/demo";
 
 export interface CartItem { product: Product; colorId: number; size: string; quantity: number }
+// Favorito = combinação produto + cor + tamanho. `product` já vem com a cor salva aplicada
+// (ou a primeira cor, em favoritos antigos sem cor). colorId/size null = não escolhido.
+export interface FavoriteItem { id: number; product: Product; colorId: number | null; size: string | null }
+export const favoriteKey = (productId: number, colorId: number | null, size: string | null) => `${productId}:${colorId ?? ""}:${size ?? ""}`;
+const sameFavorite = (a: Pick<FavoriteItem, "colorId" | "size"> & { product: { id: number } }, productId: number, colorId: number | null, size: string | null) =>
+  a.product.id === productId && a.colorId === colorId && a.size === size;
+type RawFavorite = { id: number; product: unknown; colorId: number | null; size: string | null };
+function adaptFavorites(rows: RawFavorite[]): FavoriteItem[] {
+  return rows.map(row => {
+    const base = adaptProduct(row.product);
+    const colorId = typeof row.colorId === "number" && base.colors.some(c => c.id === row.colorId) ? row.colorId : null;
+    return { id: row.id, product: colorId === null ? base : selectProductColor(base, colorId), colorId, size: typeof row.size === "string" ? row.size : null };
+  });
+}
 // v1 mixed administrator and visitor items: never guess their owner on upgrade.
 const key = "brecho_guest_cart_v2";
 const pendingPrefix = "brecho_guest_pending_v2:";
@@ -32,7 +47,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
   // so an undelivered storage event cannot resurrect an already imported cart.
   const [, setGuest] = useState<CartItem[]>([]);
   const [adminCart, setAdminCart] = useState<{ owner: string; token: string | undefined; items: CartItem[] } | null>(null);
-  const [account, setAccount] = useState<{ token: string; items: CartItem[]; favorites: Product[] } | null>(null);
+  const [account, setAccount] = useState<{ token: string; items: CartItem[]; favorites: FavoriteItem[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -118,7 +133,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
           request("/favoritos")
         ]);
         if (!cart || current !== generation.current || !isCurrent()) return;
-        setAccount({ token: favoriteToken, items: adaptCart(cart), favorites: favorites.map((f: { product: unknown }) => adaptProduct(f.product)) });
+        setAccount({ token: favoriteToken, items: adaptCart(cart), favorites: adaptFavorites(favorites) });
         setNotice(cart.notices.join(" "));
       } catch (e) {
         if (current === generation.current) setError(e instanceof Error ? e.message : "Falha ao carregar seus dados.");
@@ -129,7 +144,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
     return () => { generation.current++; };
   }, [accessToken, owner, validating, revision, reviewing]);
 
-  const localItems = user?.role === "ADMIN" ? adminCart?.owner === owner && adminCart.token === accessToken ? adminCart.items : [] : readGuest();
+  const localItems = user && user.role !== "USER" ? adminCart?.owner === owner && adminCart.token === accessToken ? adminCart.items : [] : readGuest();
   const guestItems = localItems.reduce<CartItem[]>((items, item) => {
     const base = products.find(p => p.id === item.product.id);
     if (!base) return items;
@@ -148,7 +163,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
   const cartSnapshot = useRef(items);
   cartSnapshot.current = items;
   const favorites = favoriteReady && favoriteToken && account?.token === favoriteToken
-    ? account.favorites.filter(product => product.isPublished && products.some(current => current.id === product.id && current.isPublished)) : [];
+    ? account.favorites.filter(favorite => favorite.product.isPublished && products.some(current => current.id === favorite.product.id && current.isPublished)) : [];
   useEffect(() => {
     if (!user && !validating && products.length && isCurrent()) {
       setGuest(guestItems);
@@ -164,7 +179,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
       const result = await request(path, method, body);
       if (current !== generation.current || !isCurrent()) return false;
       const update = path.startsWith("/favoritos")
-        ? { favorites: result.map((f: { product: unknown }) => adaptProduct(f.product)) }
+        ? { favorites: adaptFavorites(result) }
         : { items: adaptCart(result) };
       if (update.items) cartSnapshot.current = update.items;
       setAccount(previous => previous && ({ ...previous, ...update }));
@@ -182,7 +197,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
   function updateGuest(next: CartItem[]) {
     if (!isCurrent()) return;
     cartSnapshot.current = next;
-    if (user?.role === "ADMIN") { setAdminCart({ owner, token: accessToken, items: next }); return; }
+    if (user && user.role !== "USER") { setAdminCart({ owner, token: accessToken, items: next }); return; }
     setGuest(next); saveGuest(next);
   }
   async function add(product: Product, size: string) {
@@ -254,21 +269,24 @@ export function useShopping(products: Product[], accessToken: string | undefined
     if (!options.silent) notify.removal("Carrinho esvaziado com sucesso.");
     return true;
   }
-  async function toggleFavorite(productId: number) {
+  const isFavorite = (productId: number, colorId: number | null, size: string | null) => favorites.some(f => sameFavorite(f, productId, colorId, size));
+  async function toggleFavorite(productId: number, colorId: number | null, size: string | null) {
+    // Favoritos gravam no banco: no modo demonstração só mostram o aviso.
+    if (user?.role === "DEMO") { announceDemoBlock(); return false; }
     if (!favoriteToken || !favoriteReady || !isCurrent()) return false;
-    return favoriteFeedback.run(productId, async () => {
+    return favoriteFeedback.run(favoriteKey(productId, colorId, size), async () => {
       const current = generation.current;
-      const removing = favorites.some(product => product.id === productId);
+      const removing = isFavorite(productId, colorId, size);
       setError("");
       try {
-        const result = await request(`/favoritos/${productId}`, removing ? "DELETE" : "PUT");
+        const result = await request("/favoritos", removing ? "DELETE" : "POST", { productId, colorId, size });
         if (current !== generation.current || !isCurrent()) return false;
-        const confirmed = result.map((f: { product: unknown }) => adaptProduct(f.product)).find((p: Product) => p.id === productId);
-        // Merge only this product: independent requests can return snapshots out of order.
+        const confirmed = adaptFavorites(result).find(f => sameFavorite(f, productId, colorId, size));
+        // Merge only this combination: independent requests can return snapshots out of order.
         setAccount(previous => previous?.token === favoriteToken ? {
           ...previous, favorites: [
-            ...previous.favorites.filter(product => product.id !== productId), ...(confirmed ? [confirmed] : [])
-          ]
+            ...previous.favorites.filter(f => !sameFavorite(f, productId, colorId, size)), ...(confirmed ? [confirmed] : [])
+          ].sort((a, b) => a.id - b.id)
         } : previous);
         announce();
         if (removing) notify.removal("Produto removido dos favoritos!");
@@ -284,6 +302,6 @@ export function useShopping(products: Product[], accessToken: string | undefined
     items, favorites, busy, ready, favoriteReady, error, notice, favoriteBlocked: favoriteFeedback.blocked, favoriteState: favoriteFeedback.state, addState: additions.getState, add, remove, changeQty, clear,
     dismissNotice: () => setNotice(""),
     retry: () => setRevision(v => v + 1),
-    toggleFavorite
+    toggleFavorite, isFavorite
   };
 }

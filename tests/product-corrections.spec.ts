@@ -105,7 +105,7 @@ test("ADMIN favorites persist, synchronize, isolate USER, and release pending/co
     const button = card(page).locator(".store-favorite-bookmark");
     await expect(button).toBeEnabled(); await expect(button).toHaveCSS("cursor", "pointer");
     let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
-    await page.route(`**/api/favoritos/${product.id}`, async route => { await gate; await route.continue(); });
+    await page.route("**/api/favoritos", async route => { if (route.request().method() !== "GET") await gate; await route.continue(); });
     await button.click(); await expect(button).toHaveAttribute("aria-busy", "true"); await expect(button).toHaveCSS("cursor", "progress");
     release(); await expect(button).toHaveAttribute("aria-pressed", "true");
     await button.hover();
@@ -113,7 +113,7 @@ test("ADMIN favorites persist, synchronize, isolate USER, and release pending/co
     await expect(button).toHaveAttribute("aria-busy", "false"); await expect(button).toHaveCSS("cursor", "not-allowed");
     await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Produto adicionado aos favoritos!" })).toHaveCount(1);
     await expect(button).toBeEnabled(); await expect(button).toHaveCSS("cursor", "pointer");
-    await page.unroute(`**/api/favoritos/${product.id}`);
+    await page.unroute("**/api/favoritos");
     await page.reload(); await expect(card(page).locator(".store-favorite-bookmark")).toHaveAttribute("aria-pressed", "true");
     await expect(card(page).locator(".store-favorite-bookmark")).toHaveAttribute("aria-pressed", "true");
     const tab = await context.newPage(); await tab.goto("/favoritos");
@@ -123,10 +123,10 @@ test("ADMIN favorites persist, synchronize, isolate USER, and release pending/co
       await expect(button).toHaveCSS("cursor", "pointer");
       await card(page).screenshot({ path: info.outputPath(`admin-favorite-${width}.png`) });
     }
-    await page.route(`**/api/favoritos/${product.id}`, route => route.fulfill({ status: 503, json: { error: "Favorite unavailable" } }));
+    await page.route("**/api/favoritos", route => route.request().method() === "GET" ? route.continue() : route.fulfill({ status: 503, json: { error: "Favorite unavailable" } }));
     await button.click(); await expect(page.getByRole("alert")).toContainText("Favorite unavailable");
     await expect(button).toBeEnabled(); await expect(button).toHaveCSS("cursor", "pointer"); await expect(button).toHaveAttribute("aria-pressed", "true");
-    await page.unroute(`**/api/favoritos/${product.id}`);
+    await page.unroute("**/api/favoritos");
     await reveal(page);
     await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); await expect(button).toHaveCSS("cursor", "not-allowed");
     await expect(card(tab)).toHaveCount(0);
