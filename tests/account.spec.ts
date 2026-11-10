@@ -106,10 +106,17 @@ test("password errors, confirmation and successful change preserve session and u
   await page.getByLabel("Senha atual", { exact: true }).fill("incorrect");
   const newPassword = "New-password-42";
   await page.getByLabel("Nova senha", { exact: true }).fill(newPassword);
+  // Requisitos ao vivo (igual ao painel): a lista fica ligada à "Nova senha" e todos aparecem cumpridos.
+  const requirements = page.getByRole("list", { name: "Requisitos da senha" });
+  await expect(page.getByLabel("Nova senha", { exact: true })).toHaveAttribute("aria-describedby", (await requirements.getAttribute("id"))!);
+  await expect(requirements.locator('li[data-met="true"]')).toHaveCount(3);
+  // Confirmação diferente: aviso abaixo do campo, aria-invalid e salvar desabilitado.
   await page.getByLabel("Confirmar nova senha", { exact: true }).fill("different");
-  await page.getByRole("button", { name: "Salvar nova senha" }).click();
-  await expect(page.getByRole("alert")).toContainText("confirmação");
+  await expect(page.getByText("As senhas não coincidem", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Confirmar nova senha", { exact: true })).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("button", { name: "Salvar nova senha" })).toBeDisabled();
   await page.getByLabel("Confirmar nova senha", { exact: true }).fill(newPassword);
+  await expect(page.getByText("As senhas não coincidem", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Salvar nova senha" }).click();
   await expect(page.getByRole("alert")).toHaveText("Senha atual incorreta.");
   await page.getByLabel("Senha atual", { exact: true }).fill(process.env.E2E_USER_PASSWORD!);

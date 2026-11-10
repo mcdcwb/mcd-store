@@ -1,8 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type FormEvent } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type FormEvent } from "react";
 import { Link, useLocation } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import type { Account } from "../lib/auth";
 import { accountRequest, emptyAddress, formatCep, lookupCep, type Address, type Profile } from "../lib/account";
+import { PasswordRequirements } from "./PasswordRequirements";
+import { PASSWORD_MAX_LENGTH, passwordMeetsRules } from "../lib/password-rules";
 
 export function AccountPage({ user, favorites, onLogin, children, accessToken, onUpdated }: {
   children?: ReactNode; user: Account | null; favorites: boolean; onLogin: () => void;
@@ -76,6 +78,11 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
+  const rulesId = useId(), mismatchId = useId();
+  // Igual à Minha Conta do painel: requisitos ao vivo, aviso de senhas diferentes e salvar só habilita
+  // com a senha atual preenchida, os 3 requisitos cumpridos e a confirmação igual (regras do backend).
+  const mismatch = passwords.confirmPassword.length > 0 && passwords.confirmPassword !== passwords.newPassword;
+  const passwordReady = passwords.currentPassword.length > 0 && passwordMeetsRules(passwords.newPassword) && passwords.confirmPassword === passwords.newPassword;
 
   useEffect(() => {
     alive.current = true;
@@ -191,11 +198,19 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
         {passwordSuccess && <p role="status" className="text-sm text-primary">{passwordSuccess}</p>}
         {passwordOpen && <form id="password-form" onSubmit={savePassword}>
           <fieldset disabled={saving} className="space-y-4">
-            {([{ key: "currentPassword", label: "Senha atual" }, { key: "newPassword", label: "Nova senha" }, { key: "confirmPassword", label: "Confirmar nova senha" }] as const).map(field => <label key={field.key} className="block text-sm font-medium">{field.label}
-              <input type="password" className={inputClass} autoComplete={field.key === "currentPassword" ? "current-password" : "new-password"} minLength={field.key === "currentPassword" ? 1 : 6} maxLength={128} required value={passwords[field.key]} onChange={e => setPasswords(previous => ({ ...previous, [field.key]: e.target.value }))} />
-            </label>)}
+            {([{ key: "currentPassword", label: "Senha atual" }, { key: "newPassword", label: "Nova senha" }, { key: "confirmPassword", label: "Confirmar nova senha" }] as const).map(field => <Fragment key={field.key}>
+              <label className="block text-sm font-medium">{field.label}
+                <input type="password" className={inputClass} autoComplete={field.key === "currentPassword" ? "current-password" : "new-password"} minLength={field.key === "currentPassword" ? 1 : 6} maxLength={PASSWORD_MAX_LENGTH} required value={passwords[field.key]}
+                  aria-describedby={field.key === "newPassword" ? rulesId : field.key === "confirmPassword" && mismatch ? mismatchId : undefined}
+                  aria-invalid={field.key === "confirmPassword" && mismatch ? true : undefined}
+                  onChange={e => setPasswords(previous => ({ ...previous, [field.key]: e.target.value }))} />
+              </label>
+              {/* Fora do <label>, para não entrar no nome do campo; ligado a ele por aria-describedby. */}
+              {field.key === "confirmPassword" && mismatch && <p id={mismatchId} className="-mt-2 text-sm text-destructive">As senhas não coincidem</p>}
+            </Fragment>)}
+            <PasswordRequirements id={rulesId} value={passwords.newPassword} className="text-sm" />
             {passwordError && <p role="alert" className="text-sm text-destructive">{passwordError}</p>}
-            <button type="submit" className={buttonClass}>{saving ? "Salvando..." : "Salvar nova senha"}</button>
+            <button type="submit" className={buttonClass} disabled={saving || !passwordReady}>{saving ? "Salvando..." : "Salvar nova senha"}</button>
           </fieldset>
         </form>}
       </section>
