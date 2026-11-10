@@ -10,10 +10,10 @@
     "test": "node tests/helpers/run-isolated.mjs",
     "admin:create": "tsx src/scripts/create-admin.ts",
     "db:seed": "prisma db seed",
-    "admin:create:demo": "tsx src/scripts/create-demo-admin.ts",
     "db:seed:demo:production": "tsx src/scripts/seed-demo-production.ts",
     "seed:demo-orders": "tsx prisma/seed-demo-orders.ts",
-    "seed:admin": "tsx prisma/seed-admin.ts"
+    "seed:admin": "tsx prisma/seed-admin.ts",
+    "seed:demo-admin": "tsx prisma/seed-demo-admin.ts"
   },
   "keywords": [],
   "dependencies": {

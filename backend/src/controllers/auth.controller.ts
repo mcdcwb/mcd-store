@@ -14,6 +14,13 @@ export async function login(req: Request, res: Response) {
     return res.json(session);
 }
 
+export async function demoLogin(_req: Request, res: Response) {
+    res.setHeader("Cache-Control", "no-store");
+    const session = await authService.demoLogin();
+    if (!session) return res.status(503).json({ error: "O acesso demonstrativo está indisponível no momento." });
+    return res.json(session);
+}
+
 export function me(req: Request, res: Response) {
     return res.json({
         account: res.locals.account,

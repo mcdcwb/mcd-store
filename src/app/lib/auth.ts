@@ -1,4 +1,4 @@
-export type AccountRole = "USER" | "ADMIN";
+export type AccountRole = "USER" | "ADMIN" | "DEMO";
 export interface Account { id: number; name: string; email: string; role: AccountRole; }
 export interface AuthSession { accessToken: string; expiresAt: number; account: Account; }
 export interface RegisterInput { name: string; email: string; password: string; }
@@ -18,7 +18,7 @@ function isAccount(value: unknown): value is Account {
   return Number.isSafeInteger(account.id) && account.id > 0 &&
     typeof account.name === "string" && account.name.trim().length > 0 &&
     typeof account.email === "string" && account.email.includes("@") &&
-    (account.role === "USER" || account.role === "ADMIN");
+    (account.role === "USER" || account.role === "ADMIN" || account.role === "DEMO");
 }
 
 export function validateLogin(email: string, password: string): string | null {
@@ -82,7 +82,19 @@ export function createAuthApi(baseUrl = "/api", fetcher: typeof fetch = fetch) {
     const body = await request("/auth/login", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim().toLowerCase(), password })
-    }, signal) as { accessToken?: unknown; tokenType?: unknown; expiresIn?: unknown; expiresAt?: unknown; account?: unknown };
+    }, signal);
+    return acceptSession(body, signal);
+  }
+
+  // Painel demonstrativo: só um cliente logado abre a sessão DEMO (token USER no header).
+  async function demoLogin(userAccessToken: string, signal?: AbortSignal): Promise<AuthSession> {
+    const session = await acceptSession(await request("/auth/demo-login", { method: "POST", headers: { Authorization: "Bearer " + userAccessToken } }, signal), signal);
+    if (session.account.role !== "DEMO") throw invalidResponse();
+    return session;
+  }
+
+  async function acceptSession(raw: unknown, signal?: AbortSignal): Promise<AuthSession> {
+    const body = raw as { accessToken?: unknown; tokenType?: unknown; expiresIn?: unknown; expiresAt?: unknown; account?: unknown };
     if (!body || typeof body.accessToken !== "string" || !body.accessToken.trim() || body.tokenType !== "Bearer" ||
       typeof body.expiresIn !== "number" || !Number.isFinite(body.expiresIn) || body.expiresIn <= 0 ||
       !Number.isSafeInteger(body.expiresIn) ||
@@ -105,5 +117,5 @@ export function createAuthApi(baseUrl = "/api", fetcher: typeof fetch = fetch) {
     if (!body || !isAccount(body.account) || body.account.role !== "USER") throw invalidResponse();
     return body.account;
   }
-  return { login, register, me };
+  return { login, demoLogin, register, me };
 }

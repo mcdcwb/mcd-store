@@ -3,22 +3,28 @@ import { AuthError, type Account, type AuthSession, type createAuthApi } from ".
 export const AUTH_STORAGE_KEY = "mcd-store_auth_v1";
 export const LEGACY_USER_KEY = "brecho_user_v1";
 export const AUTH_CHANGE_KEY = "mcd-store_auth_change_v1";
+// Modo demonstração: a sessão do CLIENTE fica guardada aqui enquanto a sessão DEMO é a ativa
+// (AUTH_STORAGE_KEY). Só o token ativo é entregue ao app; este volta a ser o ativo ao sair do demo.
+export const DEMO_RETURN_KEY = "mcd-store_auth_demo_return_v1";
 
 type StorageAccess = () => Pick<Storage, "getItem" | "setItem" | "removeItem">;
-type State = { session: AuthSession | null; error: string | null; validating: boolean };
+// demoEnded: contador que avança sempre que uma sessão DEMO termina (o app volta para a loja).
+type State = { session: AuthSession | null; error: string | null; validating: boolean; demoActive: boolean; demoEnded: number };
 
 export function createAuthSession(
   api: ReturnType<typeof createAuthApi>,
   storage: StorageAccess,
-  legacyStorage: StorageAccess
+  legacyStorage: StorageAccess,
+  options: { onDemoEnded?: () => void } = {}
 ) {
-  let state: State = { session: null, error: null, validating: true };
+  let state: State = { session: null, error: null, validating: true, demoActive: false, demoEnded: 0 };
+  let demoEnded = 0;
   let generation = 0;
   let pendingLogin: string | null = null;
   const listeners = new Set<() => void>();
 
   function publish(session: AuthSession | null, error: string | null = null, validating = false) {
-    state = { session, error, validating };
+    state = { session, error, validating, demoActive: session?.account.role === "DEMO" && readReturn() !== null, demoEnded };
     listeners.forEach(listener => listener());
   }
   function clearStorage() {
@@ -31,15 +37,19 @@ export function createAuthSession(
       }));
     } catch { throw new Error("Permita o armazenamento deste site para manter a sessão entre abas."); }
   }
-  function read() {
+  function read(key = AUTH_STORAGE_KEY) {
     try {
-      const value = JSON.parse(storage().getItem(AUTH_STORAGE_KEY) ?? "null");
+      const value = JSON.parse(storage().getItem(key) ?? "null");
       if (value && typeof value.accessToken === "string" && value.accessToken.trim() &&
         Number.isFinite(value.expiresAt)) return {
           accessToken: value.accessToken as string, expiresAt: value.expiresAt as number
         };
     } catch { /* Malformed or inaccessible storage cannot authenticate anyone. */ }
     return null;
+  }
+  const readReturn = () => read(DEMO_RETURN_KEY);
+  function clearReturn() {
+    try { storage().removeItem(DEMO_RETURN_KEY); } catch { /* Storage may be blocked. */ }
   }
   function changeId() {
     try { return storage().getItem(AUTH_CHANGE_KEY); } catch { return null; }
@@ -53,22 +63,54 @@ export function createAuthSession(
     return changeId() === change && read()?.accessToken === saved.accessToken;
   }
 
+  // Sair (inclusive no modo demo) encerra as duas sessões.
   function logout(error: string | null = null) {
     generation++;
     pendingLogin = null;
     clearStorage();
+    clearReturn();
     announceChange();
     publish(null, error);
   }
 
-  async function login(email: string, password: string, signal?: AbortSignal) {
+  const login = (email: string, password: string, signal?: AbortSignal) => authenticate(() => api.login(email, password, signal), signal);
+
+  // Liga o modo demonstração: só a partir de uma sessão de CLIENTE válida. A conta do cliente
+  // não muda; o token dele é guardado em DEMO_RETURN_KEY e o token DEMO passa a ser o ativo.
+  async function enterDemo(signal?: AbortSignal) {
+    const user = state.session;
+    if (!user || user.account.role !== "USER" || read()?.accessToken !== user.accessToken) throw new AuthError("forbidden", "Entre com sua conta de cliente para usar o modo demonstração.");
+    const demo = await api.demoLogin(user.accessToken, signal);
+    if (state.session?.accessToken !== user.accessToken) return false; // a sessão mudou no meio
+    generation++;
+    try { storage().setItem(DEMO_RETURN_KEY, JSON.stringify({ accessToken: user.accessToken, expiresAt: user.expiresAt })); }
+    catch { throw new Error("Permita o armazenamento deste site para usar o modo demonstração."); }
+    save(demo);
+    announceChange();
+    publish(demo);
+    return true;
+  }
+  // Desliga o modo demonstração: a sessão guardada do cliente volta a ser a ativa e é revalidada.
+  async function exitDemo(ended = false) {
+    const saved = readReturn();
+    generation++;
+    demoEnded++;
+    clearReturn();
+    if (!saved) { logout(ended ? "A sessão demonstrativa terminou." : null); return; }
+    try { storage().setItem(AUTH_STORAGE_KEY, JSON.stringify(saved)); } catch { /* restore() decide */ }
+    announceChange();
+    publish(null, null, true);
+    if (ended) options.onDemoEnded?.();
+    await restore();
+  }
+  async function authenticate(obtain: () => Promise<AuthSession>, signal?: AbortSignal) {
     const current = ++generation;
     clearStorage();
     const change = announceChange();
     pendingLogin = change;
     publish(null, null, true);
     try {
-      const session = await api.login(email, password, signal);
+      const session = await obtain();
       if (current !== generation || signal?.aborted || changeId() !== change) return false;
       pendingLogin = null;
       save(session);
@@ -106,6 +148,8 @@ export function createAuthSession(
       const account = await api.me(saved.accessToken);
       if (current !== generation) return;
       if (!unchanged(saved, change)) { await restore(); return; }
+      if (account.role !== "DEMO") clearReturn(); // sessão de retorno só existe durante o demo
+      else if (!readReturn()) { logout("A sessão demonstrativa terminou."); return; } // DEMO sem cliente para voltar
       publish({ ...saved, account });
     } catch (error) {
       if (current !== generation) return;
@@ -116,17 +160,23 @@ export function createAuthSession(
         publish(state.session, error.message);
         return;
       }
+      // Token DEMO expirado/recusado: volta para a conta do cliente, sem deslogá-lo.
+      if (readReturn()) { await exitDemo(true); return; }
       logout(error instanceof Error ? error.message : "Não foi possível validar a sessão.");
     }
   }
 
   return {
-    login, restore, logout,
+    login, enterDemo, exitDemo, restore, logout,
     clearError() {
       if (state.error) publish(state.session, null, state.validating);
     },
     invalidate(accessToken: string | undefined, error: string) {
-      if (accessToken && state.session?.accessToken === accessToken && read()?.accessToken === accessToken) logout(error);
+      if (accessToken && state.session?.accessToken === accessToken && read()?.accessToken === accessToken) {
+        // 401 no modo demo: volta para a conta do cliente em vez de deslogar.
+        if (state.session.account.role === "DEMO" && readReturn()) void exitDemo(true);
+        else logout(error);
+      }
       else void restore();
     },
     updateAccount(accessToken: string, account: Account) {

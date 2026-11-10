@@ -1,4 +1,5 @@
 import { adaptCategories, type Category } from "../lib/categories.ts";
+import { announceDemoBlock, DEMO_BLOCK_STATUS, readDemoBlock } from "../lib/demo.ts";
 import { adaptProduct } from "../lib/products.ts";
 import type { ManagedProduct, ProductInput } from "./products.ts";
 import { orderQueryString, type CancellableOrderStatus, type OrderQuery, type OrderPage, type OrderDetails, type StockConflict, type OrderSummary } from "./orders.ts";
@@ -31,6 +32,8 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
         body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal, cache: "no-store"
       });
       if (response.status === 401) throw new ManagerApiError(401, "Sua sessão expirou. Entre novamente.");
+      const demoBlock = await readDemoBlock(response);
+      if (demoBlock) { announceDemoBlock(demoBlock); throw new ManagerApiError(DEMO_BLOCK_STATUS, demoBlock); }
       if (response.status === 403) throw new ManagerApiError(403, "Acesso administrativo não autorizado.");
       const data = await response.json().catch(() => null);
       if (!response.ok) {
@@ -48,7 +51,11 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
   }
   return {
     async archiveOrder(id: number, signal?: AbortSignal) { return request(`/${id}/archive`, "POST", {}, signal, "/orders"); },
-    async reports(signal?: AbortSignal) { return request("/reports", "GET", undefined, signal, "/orders"); },
+    // Sem período: resumo do Dashboard. Com período: relatório filtrado (start/end AAAA-MM-DD, groupBy, compare).
+    async reports(signal?: AbortSignal, period?: { start: string; end: string; groupBy: string; compare: boolean }) {
+      const query = period ? `?${new URLSearchParams({ start: period.start, end: period.end, groupBy: period.groupBy, compare: String(period.compare) })}` : "";
+      return request(`/reports${query}`, "GET", undefined, signal, "/orders");
+    },
     async statusCounts(signal?: AbortSignal): Promise<Record<import("./orders.ts").OrderStatus, number>> { return request("/status-counts", "GET", undefined, signal, "/orders"); },
     async cancelOrder(id: number, expectedStatus: CancellableOrderStatus, signal?: AbortSignal): Promise<Pick<OrderDetails, "id" | "number" | "status" | "updatedAt">> { return request(`/${id}/cancel`, "POST", { expectedStatus }, signal, "/orders"); },
     async advanceOrder(id: number, expectedStatus: "PREPARING" | "READY_OR_SHIPPED", signal?: AbortSignal): Promise<Pick<OrderDetails, "id" | "number" | "status" | "updatedAt">> { return request(`/${id}/advance`, "POST", { expectedStatus }, signal, "/orders"); },
@@ -73,6 +80,8 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
           method: "POST", headers: { Authorization: `Bearer ${token}` }, body, signal: controller.signal
         });
         if (response.status === 401) throw new ManagerApiError(401, "Sua sessão expirou. Entre novamente.");
+      const demoBlock = await readDemoBlock(response);
+      if (demoBlock) { announceDemoBlock(demoBlock); throw new ManagerApiError(DEMO_BLOCK_STATUS, demoBlock); }
         if (response.status === 403) throw new ManagerApiError(403, "Acesso administrativo não autorizado.");
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new ManagerApiError(response.status, data?.error || "Não foi possível enviar a imagem. Tente novamente.");
@@ -99,7 +108,7 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
     async setCarousel(id: number, inCarousel: boolean) { return normalize(await request(`/${id}/carrossel`, "PATCH", { inCarousel })); },
     async setCarouselOrder(productIds: number[]) {
       const data = await request("/carrossel/ordem", "PATCH", { productIds });
-      if (!Array.isArray(data)) throw new ManagerApiError(0, "Resposta invÃ¡lida da ordem do carrossel.");
+      if (!Array.isArray(data)) throw new ManagerApiError(0, "Resposta inválida da ordem do carrossel.");
       return data.map(normalize);
     }
   };

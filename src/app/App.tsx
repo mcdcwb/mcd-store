@@ -10,19 +10,24 @@ import { ProductImage } from "./components/ProductImage";
 import { AuthModal } from "./components/AuthModal";
 import { CartDrawer } from "./components/CartDrawer";
 import { StoreFooter } from "./components/StoreFooter";
-import { ProductCard, ProductDetailPage } from "./components/ProductViews";
+import { ProductCard, ProductDetailPage, type FavoriteControls } from "./components/ProductViews";
+import { FavoriteCard } from "./components/FavoriteCard";
+import { favoriteKey } from "./hooks/useShopping";
 import { sizeButtonClass } from "./lib/presentation";
 import { Manager } from "./manager/Manager";
 import { fetchCarouselProducts, categoryValue, catalogCategories, catalogSizes, isNumericSize, stockFor, type Product, type Size } from "./lib/products";
 import { useShopping } from "./hooks/useShopping";
 import { useAuth } from "./hooks/useAuth";
+import { DemoBanner } from "./components/DemoBanner";
+import { notify } from "./lib/notifications";
 import { useLocation, useNavigate } from "react-router";
 import { AccountMenu } from "./components/AccountMenu";
 import { FilterSection, FilterOptions } from "./components/CatalogFilters";
 import { AccountPage } from "./components/AccountPage";
 import { MyOrdersPage } from "./components/MyOrdersPage";
+import { ServiceStrip } from "./components/ServiceStrip";
 import {
-  ShoppingCart, X, ChevronDown, ChevronLeft, ChevronRight, User, Menu, Code2,
+  ShoppingCart, X, ChevronDown, ChevronLeft, ChevronRight, User, Menu,
   ArrowUp, ArrowDown, ArrowUpDown, MessageCircle
 } from "lucide-react";
 
@@ -79,7 +84,7 @@ export default function App() {
   }, [selectedCategory, activeCategory]);
   const [selectedSizes, setSelectedSizes] = useState<Size[]>([]);
   const [catalogSort, setCatalogSort] = useState<CatalogSort>(null);
-  const { user, accessToken, validating, sessionError, login, register, logout, clearError: clearAuthError, invalidate, updateAccount } = useAuth();
+  const { user, accessToken, validating, sessionError, login, demoActive, demoEnded, enterDemo, exitDemo, register, logout, clearError: clearAuthError, invalidate, updateAccount } = useAuth();
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -97,6 +102,13 @@ export default function App() {
   const [publicDropdownOpen, setPublicDropdownOpen] = useState(false);
   const publicDropdownRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const productsSectionRef = useRef<HTMLElement>(null);
+  const filterScrollPending = useRef(false);
+  // Marca que a próxima mudança de filtro veio de uma ação do usuário.
+  function markFilterScroll() {
+    filterScrollPending.current = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => { filterScrollPending.current = false; }));
+  }
 
   useEffect(() => {
     if (accessToken) setAuthOpen(false);
@@ -110,7 +122,7 @@ export default function App() {
     const owner = user ? `${user.role}:${user.id}` : null;
     if (!owner || (checkoutOwner.current && owner !== checkoutOwner.current)) clearCheckoutDraft();
     checkoutOwner.current = owner;
-    if (user?.role === "ADMIN") setCheckoutIntent(false);
+    if (user && user.role !== "USER") setCheckoutIntent(false);
   }, [user?.id, user?.role, validating]);
   useEffect(() => {
     if (checkoutIntent && user?.role === "USER" && !validating && shopping.ready && !shopping.busy && !shopping.error) {
@@ -119,7 +131,7 @@ export default function App() {
   }, [checkoutIntent, user?.role, validating, shopping.ready, shopping.busy, shopping.error, navigate]);
   function startCheckout() {
     if (validating || shopping.busy) return;
-    if (user?.role === "ADMIN") { setCartOpen(false); navigate("/checkout"); return; }
+    if (user && user.role !== "USER") { setCartOpen(false); navigate("/checkout"); return; }
     setCheckoutIntent(true); setCartOpen(false);
     if (!user) { setAuthMode("login"); setAuthOpen(true); }
   }
@@ -134,10 +146,17 @@ export default function App() {
       {shopping.error && <button className="ml-3 underline" onClick={shopping.retry}>Tentar novamente</button>}
     </div>
   );
-  function toggleFavorite(productId: number) {
+  function toggleFavorite(productId: number, colorId: number | null, size: string | null) {
     if (!user) { setAuthMode("login"); setAuthOpen(true); return; }
-    void shopping.toggleFavorite(productId);
+    void shopping.toggleFavorite(productId, colorId, size);
   }
+  // Coração = combinação produto + cor + tamanho (null = não escolhido).
+  const favoriteControls: FavoriteControls = {
+    isFavorite: shopping.isFavorite,
+    onFavorite: toggleFavorite,
+    favoritePending: (productId, colorId, size) => shopping.favoriteState(favoriteKey(productId, colorId, size)) === "pending",
+    favoriteBusy: (productId, colorId, size) => validating || (!!user && !shopping.favoriteReady) || shopping.favoriteBlocked(favoriteKey(productId, colorId, size)),
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -175,6 +194,7 @@ export default function App() {
   const totalPrice = cartItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
 
   function toggleSize(size: Size) {
+    markFilterScroll();
     setSelectedSizes((prev) =>
       prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
     );
@@ -189,7 +209,7 @@ export default function App() {
     const success = await login(email, password, signal);
     if (success) {
       setAuthOpen(false);
-      if (success.role === "ADMIN") navigate("/manager");
+      if (success.role === "ADMIN" || success.role === "DEMO") navigate("/manager");
     }
   }
 
@@ -198,6 +218,24 @@ export default function App() {
     setAuthMode("login");
   }
 
+  // Quando a sessão DEMO termina (expirou, 401 ou "Voltar para minha conta"), o cliente volta à loja.
+  // Reage só quando o contador avança (navigate muda de referência a cada troca de rota).
+  const handledDemoEnd = useRef(demoEnded);
+  useEffect(() => {
+    if (demoEnded === handledDemoEnd.current) return;
+    handledDemoEnd.current = demoEnded;
+    if (window.location.pathname.startsWith("/manager")) navigate("/");
+  }, [demoEnded, navigate]);
+  // Modo demonstração (interruptor do menu da conta): troca só a sessão no front.
+  async function toggleDemo(enable: boolean) {
+    if (!enable) return leaveDemo();
+    try { if (await enterDemo()) navigate("/manager"); }
+    catch (error) { notify.error(error instanceof Error ? error.message : "Não foi possível abrir o modo demonstração."); }
+  }
+  async function leaveDemo() {
+    await exitDemo();
+    navigate("/");
+  }
   function handleLogout() {
     clearCheckoutDraft(); setCheckoutIntent(false);
     logout();
@@ -205,6 +243,7 @@ export default function App() {
   }
 
   function selectPublic(publicValue: Public | "todos") {
+    markFilterScroll();
     if (detailProduct || isAccountPage || isCheckoutPage) navigate("/");
     setActivePublic(publicValue);
     setCatDropdownOpen(false);
@@ -213,6 +252,7 @@ export default function App() {
   }
 
   function selectCategory(category: Category | null) {
+    markFilterScroll();
     if (detailProduct || isAccountPage || isCheckoutPage) navigate("/");
     setActiveCategory(category);
     setCatDropdownOpen(false);
@@ -226,6 +266,18 @@ export default function App() {
     setSelectedSizes([]);
   }
   const hasActiveFilters = activePublic !== "todos" || activeCategory !== null || selectedSizes.length > 0;
+
+  useEffect(() => {
+    if (!filterScrollPending.current) return;
+    filterScrollPending.current = false;
+    const section = productsSectionRef.current;
+    if (!section) return;
+    const headerHeight = document.querySelector("header")?.getBoundingClientRect().height ?? 0;
+    const offset = section.getBoundingClientRect().top - headerHeight - 16;
+    if (offset >= 0 && offset <= 100) return; // título já visível no topo, logo abaixo do Header
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: window.scrollY + offset, behavior: reduceMotion ? "instant" : "smooth" });
+  }, [activePublic, activeCategory, selectedSizes]);
 
   const catalogTitle = activeCategory
     ? availableCategories.find(piece => piece.value === activeCategory)?.label
@@ -304,6 +356,7 @@ export default function App() {
     return <>
       <Manager user={user} token={accessToken} validating={validating} sessionError={authOpen ? null : sessionError}
         onLogin={() => { setAuthMode("login"); setAuthOpen(true); }} onLogout={handleLogout}
+        onExitDemo={leaveDemo}
         onUnauthorized={message => invalidate(accessToken, message)} onChanged={() => { retryProducts(); retryCarousel(); }} onAccountUpdated={updateAccount} />
       {authOpen && <AuthModal mode={authMode} onClose={() => setAuthOpen(false)} onLogin={handleLogin}
         onRegister={handleRegister} onSwitchMode={() => { clearAuthError(); setAuthMode(mode => mode === "login" ? "register" : "login"); }}
@@ -315,6 +368,7 @@ export default function App() {
     <div className="min-h-screen bg-background font-sans text-foreground">
       {shoppingStatus}
       {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {user?.role === "DEMO" && <DemoBanner onExit={demoActive ? leaveDemo : undefined} />}
       <header className="sticky top-0 z-50 relative bg-card/95 [&_button]:text-[15px] backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
@@ -394,7 +448,7 @@ export default function App() {
 
             {/* Right actions */}
             <div className="flex items-center gap-3 md:gap-2">
-              {user ? <AccountMenu name={user.name} role={user.role} onLogout={handleLogout} /> : (<button
+              {user ? <AccountMenu name={user.name} role={user.role} onLogout={handleLogout} demoActive={demoActive} onToggleDemo={toggleDemo} /> : (<button
                 onClick={() => { setAuthOpen(true); }}
                 className="hidden md:flex items-center gap-1.5 text-[15px] font-medium px-3 py-1.5 rounded-sm border border-t-gray-400 border-r-gray-400 border-b-gray-300 border-l-gray-300 bg-muted text-muted-foreground cursor-pointer transition-all duration-150 hover:translate-y-px hover:text-primary hover:border-t-gray-600 hover:border-r-gray-600 hover:border-b-gray-500 hover:border-l-gray-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.45)] active:translate-y-0.5 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] focus-visible:outline-2 focus-visible:outline-primary"
               >
@@ -456,7 +510,7 @@ export default function App() {
                   Entrar
                 </button>
               )}
-              {user?.role === "ADMIN" && (
+              {(user?.role === "ADMIN" || user?.role === "DEMO") && (
                 <button
                   onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
                   className="w-full text-left px-3 py-2.5 text-[15px] font-medium text-muted-foreground rounded-lg hover:bg-muted"
@@ -476,10 +530,7 @@ export default function App() {
           stockSettings={store.stockBadges ?? null}
           recommendations={relatedProducts(detailProduct, products)}
           onOpenProduct={openProductDetail}
-          favorites={shopping.favorites}
-          onFavorite={toggleFavorite}
-          favoritePending={id => shopping.favoriteState(id) === "pending"}
-          favoriteBusy={id => validating || (!!user && !shopping.favoriteReady) || shopping.favoriteBlocked(id)}
+          favorite={favoriteControls}
           availableStock={availableStock}
           onBack={() => {
             setDetailProduct(null);
@@ -491,7 +542,8 @@ export default function App() {
         onOpenCart={() => { setCartOpen(true); shopping.retry(); }} onLogin={startCheckout} onUnauthorized={message => invalidate(accessToken, message)} /> : isAccountPage ? <AccountPage accessToken={accessToken} onUpdated={updateAccount} user={user} favorites={accountPath === "/favoritos"} onLogin={() => setAuthOpen(true)}>
           {shopping.ready && !shopping.favorites.length && <p className="mt-4">Nenhum favorito salvo.</p>}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {shopping.favorites.map(product => <ProductCard stockSettings={store.stockBadges ?? null} key={product.id} product={product} badgeProduct={products.find(current => current.id === product.id)} liked onFavorite={() => toggleFavorite(product.id)} favoritePending={shopping.favoriteState(product.id) === "pending"} favoriteBusy={!shopping.favoriteReady || shopping.favoriteBlocked(product.id)} availableStock={availableStock} onAddToCart={addToCart} addState={shopping.addState} />)}
+            {shopping.favorites.map(item => <FavoriteCard key={item.id} item={item} catalog={products.find(current => current.id === item.product.id)} favorite={favoriteControls}
+              onOpen={href => navigate(href)} availableStock={availableStock} onAddToCart={addToCart} addState={shopping.addState} />)}
           </div>
         </AccountPage> : <>
         {featuredProducts.length > 0 && <section aria-label="Carrossel de produtos" className="w-full pt-0">
@@ -609,27 +661,7 @@ export default function App() {
           </div>
         </section>}
 
-        <section className="store-service-strip border-b-2 border-[#111111] bg-[#D9FF38] px-4 py-3 text-[#111111] sm:py-4">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:gap-4">
-            <Code2 aria-hidden="true" className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-            <p className="min-w-0 flex-1 text-left text-[9px] font-bold leading-relaxed tracking-[0.08em] sm:text-xs sm:tracking-[0.16em]">
-              PROJETO END-TO-END
-            </p>
-            {/* xx */}
-            <a
-              className="whitespace-nowrap text-right text-[10px] font-semibold tracking-[0.1em] underline underline-offset-4 transition-colors hover:text-primary focus-visible:text-primary sm:text-center sm:text-xs sm:tracking-[0.14em]"
-              href="https://luan-machado.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              por LUAN MACHADO
-            </a>
-            <p className="hidden min-w-0 text-right text-[9px] font-bold leading-relaxed tracking-[0.08em] sm:block sm:text-xs sm:tracking-[0.16em]">
-              E-COMMERCE DEMONSTRATIVO
-            </p>
-            <Code2 aria-hidden="true" className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-          </div>
-        </section>
+        <ServiceStrip />
 
         {/* ── Main layout ────────────────────────────────────────────────────── */}
         <main className="max-w-7xl mx-auto px-2 sm:px-4 py-8">
@@ -659,7 +691,7 @@ export default function App() {
             </aside>
 
             {/* ── Products section ─────────────────────────────────────────── */}
-            <section className="flex-1 min-w-0">
+            <section ref={productsSectionRef} className="flex-1 min-w-0">
               {/* Section header */}
               <div className="flex flex-wrap items-end justify-between mb-6 gap-4">
                 <div className="flex w-full flex-col gap-2">
@@ -689,7 +721,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex min-h-11 justify-end lg:justify-center">
-                    {hasActiveFilters && <button type="button" onClick={clearFilters}
+                    {hasActiveFilters && <button type="button" onClick={() => { markFilterScroll(); clearFilters(); }}
                       className="min-h-11 rounded-md border border-border px-3 text-right text-sm text-primary transition-colors duration-200 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
                       Limpar filtros
                     </button>}
@@ -738,7 +770,7 @@ export default function App() {
                   <p className="text-base font-medium">Nenhuma peça encontrada</p>
                   <p className="text-sm">Tente ajustar os filtros de tamanho, público ou categoria</p>
                   {hasActiveFilters && <button
-                    onClick={clearFilters}
+                    onClick={() => { markFilterScroll(); clearFilters(); }}
                     className="mt-1 min-h-10 rounded-md border border-border px-3 text-sm text-primary hover:opacity-80"
                   >
                     Limpar filtros
@@ -747,7 +779,7 @@ export default function App() {
               ) : (
                 <div className="store-catalog-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-1 md:gap-2">
                   {sortedProducts.map((product) => (
-                    <ProductCard stockSettings={store.stockBadges ?? null} key={product.id} liked={shopping.favorites.some(p => p.id === product.id)} onFavorite={() => toggleFavorite(product.id)} favoritePending={shopping.favoriteState(product.id) === "pending"} favoriteBusy={validating || (!!user && !shopping.favoriteReady) || shopping.favoriteBlocked(product.id)} product={product} availableStock={availableStock} onAddToCart={addToCart} addState={shopping.addState} />
+                    <ProductCard stockSettings={store.stockBadges ?? null} key={product.id} favorite={favoriteControls} product={product} availableStock={availableStock} onAddToCart={addToCart} addState={shopping.addState} />
                   ))}
                 </div>
               )}

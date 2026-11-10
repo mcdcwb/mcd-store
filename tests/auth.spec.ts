@@ -132,7 +132,9 @@ test("customer menu opens only by click, toggles, navigates, restores session an
   await expect(menu).toHaveCount(0);
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await trigger.click();
-  await expect(menu.locator("a, button")).toHaveText(["Minha Conta", "Favoritos", "Meus Pedidos", "Sair"]);
+  await expect(menu.locator('a, button:not([role="switch"])')).toHaveText(["Minha Conta", "Favoritos", "Meus Pedidos", "Sair"]);
+  // Cliente logado também vê o interruptor do modo demonstração, desligado por padrão.
+  await expect(menu.getByRole("switch", { name: "Modo demonstração" })).toHaveAttribute("aria-checked", "false");
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await trigger.click();
   await expect(menu).toHaveCount(0);
@@ -396,12 +398,12 @@ test("a customer can create a PostgreSQL account and then log in", async ({ page
   await page.getByRole("button", { name: "Cadastre-se" }).click();
   await page.getByLabel("Nome completo").fill("Nova Cliente");
   await page.getByLabel("E-mail", { exact: true }).fill(registerEmail);
-  await page.getByLabel("Senha", { exact: true }).fill("senha-segura");
+  await page.getByLabel("Senha", { exact: true }).fill("Senha-Segura1");
   const registration = page.waitForResponse("**/api/auth/register");
   await submit(page);
   expect((await registration).status()).toBe(201);
   await expect(page.getByRole("status")).toContainText("Conta criada");
-  await page.getByLabel("Senha", { exact: true }).fill("senha-segura");
+  await page.getByLabel("Senha", { exact: true }).fill("Senha-Segura1");
   await submit(page);
   await expect(page.getByText("Nova", { exact: true }).first()).toBeVisible();
 });

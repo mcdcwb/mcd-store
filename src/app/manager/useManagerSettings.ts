@@ -1,3 +1,4 @@
+import { announceDemoBlock, readDemoBlock } from "../lib/demo";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { notify } from "../lib/notifications";
@@ -21,6 +22,8 @@ export function useManagerSettings(token: string, path: string, onUnauthorized: 
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: method === "PUT" ? JSON.stringify(value) : undefined
     });
+    const demoBlock = await readDemoBlock(response);
+    if (demoBlock) { announceDemoBlock(demoBlock); throw new Error(demoBlock); }
     if (response.status === 401 || response.status === 403) {
       const message = "Sua sessão administrativa não está autorizada. Entre novamente.";
       unauthorized.current(message);

@@ -3,9 +3,12 @@ import { getJwtKey } from "../config/auth.js";
 import type { AccountRole, TokenIdentity } from "../types/auth.js";
 
 const issuer = "mcd-store";
-const audiences = { ADMIN: "mcd-store-admin", USER: "mcd-store-user" } as const;
+const audiences = { ADMIN: "mcd-store-admin", USER: "mcd-store-user", DEMO: "mcd-store-demo" } as const;
 // Fixed lifetime for both USER and ADMIN; login metadata uses this same policy.
 export const tokenLifetimeSeconds = 30 * 24 * 60 * 60;
+// Sessão curta para o painel demonstrativo.
+export const demoTokenLifetimeSeconds = 2 * 60 * 60;
+export const lifetimeFor = (role: AccountRole) => role === "DEMO" ? demoTokenLifetimeSeconds : tokenLifetimeSeconds;
 
 export function signAccountToken(id: number, role: AccountRole) {
     const issuedAt = Math.floor(Date.now() / 1000);
@@ -15,7 +18,7 @@ export function signAccountToken(id: number, role: AccountRole) {
         .setIssuer(issuer)
         .setAudience(audiences[role])
         .setIssuedAt(issuedAt)
-        .setExpirationTime(issuedAt + tokenLifetimeSeconds)
+        .setExpirationTime(issuedAt + lifetimeFor(role))
         .sign(getJwtKey());
 }
 
@@ -41,6 +44,7 @@ export async function verifyAccountToken(token: string): Promise<TokenIdentity> 
         return { id, role: "ADMIN" };
     }
     if (payload.aud === audiences.USER && payload.role === "USER") return { id, role: "USER" };
+    if (payload.aud === audiences.DEMO && payload.role === "DEMO") return { id, role: "DEMO" };
     throw new Error("Token inválido.");
 }
 
