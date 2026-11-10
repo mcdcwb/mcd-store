@@ -32,7 +32,8 @@ test("registration enforces the new password requirements while login accepts le
 
 test("login issues a persistent expiring JWT and rejects invalid credentials and inactive admins", async (t) => {
     const email = "login-" + randomUUID() + "@example.test";
-    const password = "abcde";
+    // Criação de admin segue a regra de senha do cadastro (6+, 1 maiúscula, 1 número).
+    const password = "Abcde1";
     const http = await startTestServer(createApp());
     try {
         const admin = await createAdmin({ email, password });

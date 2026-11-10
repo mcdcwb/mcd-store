@@ -643,10 +643,10 @@ test("administrator account forms update session email and never expose password
   await expect(page.getByText("E-mail atualizado com sucesso.", { exact: true })).toBeVisible();
   await expect(page.locator("aside")).toContainText("admin-alterado@example.test");
   await page.getByLabel("Senha atual", { exact: true }).fill("sensitive-current");
-  await page.getByLabel("Nova senha", { exact: true }).fill("sensitive-next");
-  await page.getByLabel("Confirmar nova senha", { exact: true }).fill("sensitive-next");
+  await page.getByLabel("Nova senha", { exact: true }).fill("Sensitive-Next1");
+  await page.getByLabel("Confirmar nova senha", { exact: true }).fill("Sensitive-Next1");
   await page.getByRole("button", { name: "Salvar nova senha", exact: true }).click();
   await expect(page.getByText("Senha alterada com sucesso.", { exact: true })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("sensitive-current");
-  await expect(page.locator("body")).not.toContainText("sensitive-next");
+  await expect(page.locator("body")).not.toContainText("Sensitive-Next1");
 });

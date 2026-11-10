@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { Account } from "../lib/auth";
 import { accountRequest } from "../lib/account";
 import { Button } from "../components/ui/button";
+import { Lock, Mail } from "lucide-react";
+import { PasswordRequirements } from "../components/PasswordRequirements";
+import { PASSWORD_MAX_LENGTH, passwordMeetsRules } from "../lib/password-rules";
 
 const input = "mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
@@ -15,6 +18,12 @@ export function AdminAccountPage({ token, user, onUpdated }: { token: string; us
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const pending = useRef(false);
+  const demo = user.role === "DEMO";
+  const rulesId = useId(), mismatchId = useId();
+  const mismatch = passwords.confirmPassword.length > 0 && passwords.confirmPassword !== passwords.newPassword;
+  // Salvar só habilita com os 3 requisitos cumpridos e a confirmação igual (mesmas regras do backend).
+  const passwordReady = passwords.currentPassword.length > 0 && passwordMeetsRules(passwords.newPassword) && passwords.confirmPassword === passwords.newPassword;
+  const lockedHint = <p className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"><Lock aria-hidden="true" size={15} className="shrink-0" />Indisponível no modo demonstração: e-mail e senha da conta demo não podem ser alterados.</p>;
 
   useEffect(() => {
     const abort = new AbortController();
@@ -51,16 +60,21 @@ export function AdminAccountPage({ token, user, onUpdated }: { token: string; us
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {loading ? <p role="status">Carregando conta...</p> : <>
       <form onSubmit={saveEmail} className="space-y-4 rounded-xl border border-border bg-card p-5 sm:p-6">
-        <h2 className="font-semibold text-lg">E-mail</h2>
-        <label className="block text-sm font-medium">E-mail<input className={input} type="email" autoComplete="email" maxLength={254} required value={email} onChange={event => { setEmail(event.target.value); setSuccess(""); }} /></label>
+        <h2 className="flex items-center gap-2 font-semibold text-lg">Alterar e-mail<Mail aria-hidden="true" size={16} /></h2>{demo && lockedHint}
+        <label className="block text-sm font-medium">E-mail<input className={input} type="email" autoComplete="email" maxLength={254} required disabled={demo} value={email} onChange={event => { setEmail(event.target.value); setSuccess(""); }} /></label>
         {success && <p role="status" className="text-sm text-primary">{success}</p>}
-        <Button className="h-auto min-h-11 rounded-lg px-5 py-2.5" type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar e-mail"}</Button>
+        <Button className="h-auto min-h-11 rounded-lg px-5 py-2.5" type="submit" disabled={saving || demo}>{saving ? "Salvando..." : "Salvar e-mail"}</Button>
       </form>
       <form onSubmit={savePassword} className="space-y-4 rounded-xl border border-border bg-card p-5 sm:p-6">
-        <h2 className="font-semibold text-lg">Senha</h2>
-        {([ ["currentPassword", "Senha atual", "current-password", 1], ["newPassword", "Nova senha", "new-password", 6], ["confirmPassword", "Confirmar nova senha", "new-password", 6] ] as const).map(([key, label, autoComplete, minLength]) => <label key={key} className="block text-sm font-medium">{label}<input className={input} type="password" autoComplete={autoComplete} minLength={minLength} maxLength={128} required value={passwords[key]} onChange={event => setPasswords(previous => ({ ...previous, [key]: event.target.value }))} /></label>)}
+        <h2 className="flex items-center gap-2 font-semibold text-lg">Alterar senha<Lock aria-hidden="true" size={16} /></h2>{demo && lockedHint}
+        {([ ["currentPassword", "Senha atual", "current-password", 1], ["newPassword", "Nova senha", "new-password", 6], ["confirmPassword", "Confirmar nova senha", "new-password", 6] ] as const).map(([key, label, autoComplete, minLength]) => <Fragment key={key}><label className="block text-sm font-medium">{label}<input className={input} type="password" autoComplete={autoComplete} minLength={minLength} maxLength={PASSWORD_MAX_LENGTH} required disabled={demo} value={passwords[key]}
+          aria-describedby={key === "newPassword" ? rulesId : key === "confirmPassword" && mismatch ? mismatchId : undefined} aria-invalid={key === "confirmPassword" && mismatch ? true : undefined}
+          onChange={event => setPasswords(previous => ({ ...previous, [key]: event.target.value }))} /></label>
+          {/* Fora do <label>, para não entrar no nome do campo; ligada a ele por aria-describedby. */}
+          {key === "confirmPassword" && mismatch && <p id={mismatchId} className="-mt-2 text-sm text-destructive">As senhas não coincidem</p>}</Fragment>)}
+        <PasswordRequirements id={rulesId} value={passwords.newPassword} className="text-sm" />
         {passwordError && <p role="alert" className="text-sm text-destructive">{passwordError}</p>}{passwordSuccess && <p role="status" className="text-sm text-primary">{passwordSuccess}</p>}
-        <Button className="h-auto min-h-11 rounded-lg px-5 py-2.5" type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar nova senha"}</Button>
+        <Button className="h-auto min-h-11 rounded-lg px-5 py-2.5" type="submit" disabled={saving || demo || !passwordReady}>{saving ? "Salvando..." : "Salvar nova senha"}</Button>
       </form>
     </>}
   </div>;

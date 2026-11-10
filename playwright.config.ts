@@ -2,9 +2,11 @@ import { defineConfig } from "@playwright/test";
 import { randomBytes, randomUUID } from "node:crypto";
 
 process.env.E2E_ADMIN_EMAIL ??= "browser-" + randomUUID() + "@example.test";
-process.env.E2E_ADMIN_PASSWORD ??= randomBytes(3).toString("hex").slice(0, 5);
+// Senhas aleatórias que cumprem a regra de senha do backend (6+ caracteres, 1 maiúscula, 1 número),
+// exigida no cadastro de clientes e na criação de admin (backend/src/schemas/password.schema.ts).
+process.env.E2E_ADMIN_PASSWORD ??= "Adm1-" + randomBytes(4).toString("hex");
 process.env.E2E_USER_EMAIL ??= "customer-" + randomUUID() + "@example.test";
-process.env.E2E_USER_PASSWORD ??= randomBytes(3).toString("hex").slice(0, 5);
+process.env.E2E_USER_PASSWORD ??= "Usr1-" + randomBytes(4).toString("hex");
 process.env.E2E_REGISTER_EMAIL ??= "register-" + randomUUID() + "@example.test";
 process.env.E2E_PROFILE_PREFIX ??= "profile-" + randomUUID();
 

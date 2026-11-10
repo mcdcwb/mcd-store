@@ -12,7 +12,7 @@ process.env.JWT_SECRET = randomBytes(32).toString("hex");
 test("badge API limits new text to twelve and preserves untouched legacy badges atomically", async () => {
   assert.match(new URL(process.env.DATABASE_URL!).pathname, /^\/mcd_store_test_/);
   const server = await startTestServer(createApp());
-  const email = `${randomUUID()}@example.test`, password = randomUUID();
+  const email = `${randomUUID()}@example.test`, password = "Badge-" + randomUUID(); // maiúscula + número: regra de criação de admin
   let id: number | undefined;
   try {
     await createAdmin({ email, password });

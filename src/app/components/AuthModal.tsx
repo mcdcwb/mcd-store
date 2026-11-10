@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { PasswordRequirements } from "./PasswordRequirements";
+import { useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { validateLogin, validateRegistration } from "../lib/auth";
 
@@ -17,6 +18,7 @@ export function AuthModal({
   onSwitchMode: () => void;
   sessionError: string | null;
 }) {
+  const passwordRulesId = useId();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,9 +83,11 @@ export function AuthModal({
           const overlay = event.currentTarget.getBoundingClientRect();
           // Adapt each edge independently, preserving a clickable outer strip.
           const safeGap = (gap: number) => Math.min(100, Math.max(0, gap) / 2);
-          if (event.clientX < bounds.left - safeGap(bounds.left - overlay.left) ||
+          // O navegador entrega clientX/clientY arredondados para baixo: nas bordas esquerda/superior,
+          // um limite fracionário (ex.: 78,5) faria o pixel da fronteira fechar o modal. Arredonda para baixo.
+          if (event.clientX < Math.floor(bounds.left - safeGap(bounds.left - overlay.left)) ||
             event.clientX > bounds.right + safeGap(overlay.right - bounds.right) ||
-            event.clientY < bounds.top - safeGap(bounds.top - overlay.top) ||
+            event.clientY < Math.floor(bounds.top - safeGap(bounds.top - overlay.top)) ||
             event.clientY > bounds.bottom + safeGap(overlay.bottom - bounds.bottom)) onClose();
         }}
       >
@@ -152,6 +156,7 @@ export function AuthModal({
               <input
                 type="password"
                 aria-label="Senha"
+                aria-describedby={mode === "register" ? passwordRulesId : undefined}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 maxLength={128}
                 value={password}
@@ -160,11 +165,7 @@ export function AuthModal({
                 className="w-full px-3.5 py-2.5 rounded-xl bg-input-background text-foreground font-medium placeholder:text-muted-foreground/30 autofill:[-webkit-text-fill-color:var(--foreground)] autofill:[-webkit-box-shadow:0_0_0_1000px_var(--input-background)_inset] border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
                 required
               />
-              {mode === "register" && <ul className="mt-1 text-xs text-muted-foreground/80">
-                <li>Mínimo de 6 caracteres</li>
-                <li>Pelo menos 1 letra maiúscula</li>
-                <li>Pelo menos 1 número</li>
-              </ul>}
+              {mode === "register" && <PasswordRequirements id={passwordRulesId} value={password} className="mt-1.5" />}
             </div>
 
             {(error || sessionError) && (

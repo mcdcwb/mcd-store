@@ -1,5 +1,6 @@
 
 import { createAdminSchema } from "../schemas/admin.schema.js";
+import { passwordRequirementsText } from "../schemas/password.schema.js";
 import { createAdmin } from "../services/admin.service.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -37,8 +38,9 @@ try {
 
     if (!input.success) {
         console.error(
-            "Defina ADMIN_EMAIL válido e ADMIN_PASSWORD com 5 a 128 caracteres.",
+            `Defina ADMIN_EMAIL válido e ADMIN_PASSWORD ${passwordRequirementsText} (mesma regra do cadastro de clientes).`,
         );
+        for (const issue of input.error.issues) console.error(`  - ${issue.path.join(".") || "valor"}: ${issue.message}`);
         process.exitCode = 1;
     } else {
         await createAdmin(input.data);
