@@ -648,8 +648,19 @@ test("administrator account forms update session email and never expose password
   await page.getByRole("button", { name: "Salvar e-mail", exact: true }).click();
   await expect(page.getByText("E-mail atualizado com sucesso.", { exact: true })).toBeVisible();
   await expect(page.locator("aside")).toContainText("admin-alterado@example.test");
+  // Nova igual à atual: aviso abaixo da Nova senha, aria-invalid, item "Diferente" neutro e salvar desabilitado.
+  const same = "A nova senha precisa ser diferente da senha atual.";
+  await page.getByLabel("Senha atual", { exact: true }).fill("Igual-123");
+  await page.getByLabel("Nova senha", { exact: true }).fill("Igual-123");
+  await page.getByLabel("Confirmar nova senha", { exact: true }).fill("Igual-123");
+  await expect(page.getByText(same, { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Nova senha", { exact: true })).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("list", { name: "Requisitos da senha" }).locator("li").filter({ hasText: "Diferente da senha atual" })).toHaveAttribute("data-met", "false");
+  await expect(page.getByRole("button", { name: "Salvar nova senha" })).toBeDisabled();
   await page.getByLabel("Senha atual", { exact: true }).fill("sensitive-current");
   await page.getByLabel("Nova senha", { exact: true }).fill("Sensitive-Next1");
+  await expect(page.getByText(same, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Requisitos da senha" }).locator("li").filter({ hasText: "Diferente da senha atual" })).toHaveAttribute("data-met", "true");
   await page.getByLabel("Confirmar nova senha", { exact: true }).fill("Sensitive-Next1");
   await page.getByRole("button", { name: "Salvar nova senha", exact: true }).click();
   await expect(page.getByText("Senha alterada com sucesso.", { exact: true })).toBeVisible();

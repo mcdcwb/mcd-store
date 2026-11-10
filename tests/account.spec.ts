@@ -103,13 +103,24 @@ test("CEP errors permit manual input; delayed responses cannot overwrite newer e
 test("password errors, confirmation and successful change preserve session and update login", async ({ page }) => {
   await login(page, "password");
   await page.getByRole("button", { name: "Alterar senha", exact: true }).click();
+  // Nova igual à atual: aviso abaixo da Nova senha, aria-invalid, item "Diferente" neutro e salvar desabilitado.
+  const same = "A nova senha precisa ser diferente da senha atual.";
+  await page.getByLabel("Senha atual", { exact: true }).fill("Igual-123");
+  await page.getByLabel("Nova senha", { exact: true }).fill("Igual-123");
+  await page.getByLabel("Confirmar nova senha", { exact: true }).fill("Igual-123");
+  await expect(page.getByText(same, { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Nova senha", { exact: true })).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("list", { name: "Requisitos da senha" }).locator("li").filter({ hasText: "Diferente da senha atual" })).toHaveAttribute("data-met", "false");
+  await expect(page.getByRole("button", { name: "Salvar nova senha" })).toBeDisabled();
   await page.getByLabel("Senha atual", { exact: true }).fill("incorrect");
   const newPassword = "New-password-42";
   await page.getByLabel("Nova senha", { exact: true }).fill(newPassword);
   // Requisitos ao vivo (igual ao painel): a lista fica ligada à "Nova senha" e todos aparecem cumpridos.
   const requirements = page.getByRole("list", { name: "Requisitos da senha" });
   await expect(page.getByLabel("Nova senha", { exact: true })).toHaveAttribute("aria-describedby", (await requirements.getAttribute("id"))!);
-  await expect(requirements.locator('li[data-met="true"]')).toHaveCount(3);
+  // Os 4 itens cumpridos, inclusive "Diferente da senha atual".
+  await expect(requirements.locator('li[data-met="true"]')).toHaveCount(4);
+  await expect(page.getByText(same, { exact: true })).toHaveCount(0);
   // Confirmação diferente: aviso abaixo do campo, aria-invalid e salvar desabilitado.
   await page.getByLabel("Confirmar nova senha", { exact: true }).fill("different");
   await expect(page.getByText("As senhas não coincidem", { exact: true })).toBeVisible();

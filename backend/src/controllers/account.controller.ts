@@ -16,11 +16,21 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
         return next(error);
     }
 }
-export async function changePassword(req: Request, res: Response) {
+// Troca de senha (cliente e admin): mesma ordem e mesmas mensagens nos dois fluxos.
+// (a) schema: regras e confirmação; (b) senha atual correta; (c) nova diferente da atual — (b) e (c)
+// ficam em service.replacePassword. Toda recusa é 400, então o rate limit das rotas (que só ignora
+// respostas de sucesso) conta também a tentativa com a nova senha igual à atual.
+export const SAME_PASSWORD_MESSAGE = "A nova senha precisa ser diferente da senha atual.";
+async function respondPasswordChange(req: Request, res: Response, change: typeof service.changePassword) {
     const result = changePasswordSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ error: "A nova senha deve ter de 6 a 128 caracteres, uma letra maiúscula, um número e a confirmação deve ser igual." });
-    if (!await service.changePassword(res.locals.account.id, result.data)) return res.status(400).json({ error: "Senha atual incorreta." });
+    const outcome = await change(res.locals.account.id, result.data);
+    if (outcome === "wrong-current") return res.status(400).json({ error: "Senha atual incorreta." });
+    if (outcome === "same-as-current") return res.status(400).json({ error: SAME_PASSWORD_MESSAGE });
     return res.json({ message: "Senha alterada com sucesso." });
+}
+export async function changePassword(req: Request, res: Response) {
+    return respondPasswordChange(req, res, service.changePassword);
 }
 
 export async function getAdminProfile(_req: Request, res: Response) {
@@ -40,8 +50,5 @@ export async function updateAdminEmail(req: Request, res: Response, next: NextFu
 }
 export async function changeAdminPassword(req: Request, res: Response) {
     if (res.locals.account.role !== "ADMIN") return res.status(403).json({ error: "Acesso exclusivo para administradores." });
-    const result = changePasswordSchema.safeParse(req.body);
-    if (!result.success) return res.status(400).json({ error: "A nova senha deve ter de 6 a 128 caracteres, uma letra maiúscula, um número e a confirmação deve ser igual." });
-    if (!await service.changeAdminPassword(res.locals.account.id, result.data)) return res.status(400).json({ error: "Senha atual incorreta." });
-    return res.json({ message: "Senha alterada com sucesso." });
+    return respondPasswordChange(req, res, service.changeAdminPassword);
 }

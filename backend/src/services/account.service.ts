@@ -23,13 +23,28 @@ export async function updateProfile(id: number, input: z.infer<typeof updateAcco
         return profile(await tx.user.update({ where: { id }, data: { email: input.email, ...(input.phone !== undefined ? { phone: input.phone } : {}) }, select }));
     }, id);
 }
+// Resultado da troca de senha, igual para cliente e admin (o controller traduz em resposta HTTP).
+export type PasswordChangeResult = "changed" | "wrong-current" | "same-as-current";
+
+// Regra única da troca de senha (PUT /conta/senha e PUT /conta/admin/senha). O schema (regras e
+// confirmação) já foi validado no controller; aqui, nesta ordem:
+//   1. a senha atual precisa bater com o hash guardado;
+//   2. a nova senha não pode bater com esse MESMO hash (argon2id, verifyPassword) — não basta comparar
+//      com o campo currentPassword enviado. Como (1) vem antes, quem não sabe a senha atual nunca
+//      recebe o aviso (2) e não descobre nada sobre a senha guardada.
+// A gravação só acontece se o hash ainda for o lido: uma troca concorrente não é sobrescrita.
+async function replacePassword(storedHash: string | undefined, input: z.infer<typeof changePasswordSchema>,
+    write: (passwordHash: string, expectedHash: string) => Promise<{ count: number }>): Promise<PasswordChangeResult> {
+    if (!storedHash || !await verifyPassword(storedHash, input.currentPassword)) return "wrong-current";
+    if (await verifyPassword(storedHash, input.newPassword)) return "same-as-current";
+    const updated = await write(await hashPassword(input.newPassword), storedHash);
+    return updated.count === 1 ? "changed" : "wrong-current";
+}
+
 export async function changePassword(id: number, input: z.infer<typeof changePasswordSchema>) {
     const user = await prisma.user.findUnique({ where: { id }, select: { passwordHash: true } });
-    if (!user || !await verifyPassword(user.passwordHash, input.currentPassword)) return false;
-    const passwordHash = await hashPassword(input.newPassword);
-    // A concurrent password change must not be overwritten using an obsolete password.
-    const updated = await prisma.user.updateMany({ where: { id, passwordHash: user.passwordHash }, data: { passwordHash } });
-    return updated.count === 1;
+    return replacePassword(user?.passwordHash, input, (passwordHash, expectedHash) =>
+        prisma.user.updateMany({ where: { id, passwordHash: expectedHash }, data: { passwordHash } }));
 }
 
 const adminSelect = { id: true, email: true } as const;
@@ -48,8 +63,6 @@ export async function updateAdminEmail(id: number, email: string) {
 }
 export async function changeAdminPassword(id: number, input: z.infer<typeof changePasswordSchema>) {
     const admin = await prisma.admin.findUnique({ where: { id }, select: { passwordHash: true } });
-    if (!admin || !await verifyPassword(admin.passwordHash, input.currentPassword)) return false;
-    const passwordHash = await hashPassword(input.newPassword);
-    const updated = await prisma.admin.updateMany({ where: { id, passwordHash: admin.passwordHash }, data: { passwordHash } });
-    return updated.count === 1;
+    return replacePassword(admin?.passwordHash, input, (passwordHash, expectedHash) =>
+        prisma.admin.updateMany({ where: { id, passwordHash: expectedHash }, data: { passwordHash } }));
 }
