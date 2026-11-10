@@ -65,7 +65,7 @@ test("saved Manager switches control selected storefront badges and the red-disa
   await setup(page);
   const lastUnit = { ...products[1], id: 8, name: "Peça 1", colors: [{ ...products[1].colors[0], id: 8, variants: [{ id: 8, value: "M", stock: 1 }] }] };
   await page.route("**/api/produtos{,/admin}", route => route.fulfill({ json: [...products, lastUnit] }));
-  for (const [showLow, showLast, expected] of [[true, false, "POUCAS UNIDADES"], [false, false, null], [false, true, "ÚLTIMA PEÇA"]] as const) {
+  for (const [showLow, showLast, expected] of [[true, false, 'POUCAS UNIDADES "M"'], [false, false, null], [false, true, 'ÚLTIMA PEÇA "M"']] as const) {
     await page.goto("/manager");
     await page.getByRole("link", { name: "Configurações", exact: true }).click();
     await page.getByRole("checkbox", { name: 'Exibir badge "Poucas unidades"', exact: true }).setChecked(showLow);
@@ -302,15 +302,15 @@ for (const width of [1440, 390, 320]) test(`store details save and feed public c
   await page.reload();
   await expect(page.getByLabel("Número", { exact: true })).toHaveValue("123");
   await page.getByRole("link", { name: "Ver loja", exact: true }).click();
-  await expect(page.locator("footer address")).toContainText("Rua Teste, 123 · Sala 2");
-  await expect(page.locator("footer address")).toContainText("CEP 80000-000");
-  await expect(page.locator("footer")).toContainText("(41) 99999-9999");
+  // O rodapé público não lista contatos comerciais, mesmo com endereço e WhatsApp salvos.
+  await expect(page.locator("footer")).toContainText("Os contatos comerciais não são exibidos nesta versão pública.");
+  await expect(page.locator("footer address")).toHaveCount(0);
+  await expect(page.locator("footer")).not.toContainText("Rua Teste");
+  await expect(page.locator("footer")).not.toContainText("(41) 99999-9999");
+  // O botão flutuante de WhatsApp (oculto só com VITE_DEMO_MODE=true) usa o número salvo.
   await expect(page.getByRole("link", { name: "Falar conosco pelo WhatsApp" })).toHaveAttribute("href", "https://wa.me/5541999999999");
-  await expect(page.locator("footer")).not.toContainText("9745-8063");
   details = { address: null, whatsapp: null };
   await page.reload();
-  await expect(page.locator("footer")).toContainText("Endereço da loja ainda não informado.");
-  await expect(page.locator("footer address")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Falar conosco pelo WhatsApp" })).toHaveCount(0);
   await page.route("**/api/settings/public", route => route.fulfill({ status: 500, json: { error: "Indisponível" } }));
   await page.reload();
