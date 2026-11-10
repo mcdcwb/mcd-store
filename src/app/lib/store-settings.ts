@@ -1,5 +1,5 @@
 import type { Address } from "./address";
-import { announceDemoBlock, readDemoBlock } from "./demo";
+import { throwIfDemoBlocked } from "./demo";
 import { isStockBadgeSettings, type StockBadgeSettings } from "../../../backend/src/lib/stock-badges.ts";
 import { isBusinessHours, type BusinessHours } from "./business-hours.ts";
 export { normalizeWhatsapp, formatWhatsapp, whatsappUrl } from "../../../backend/src/lib/store-contact";
@@ -12,8 +12,7 @@ export async function storeDetailsRequest(token?: string, body?: StoreDetailsInp
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: body ? JSON.stringify(body) : undefined
   });
-  const demoBlock = await readDemoBlock(response);
-  if (demoBlock) { announceDemoBlock(demoBlock); throw new Error(demoBlock); }
+  await throwIfDemoBlocked(response);
   if (response.status === 401 || response.status === 403) throw new Error("Sua sessão administrativa não está autorizada. Entre novamente.");
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Não foi possível acessar os dados da loja.");

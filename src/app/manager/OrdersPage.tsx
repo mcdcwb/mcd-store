@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search, Ref
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { toast } from "sonner";
 import { notify } from "../lib/notifications";
+import { isDemoBlocked } from "../lib/demo";
 import { createManagerApi, ManagerApiError } from "./api";
 import { orderStatusLabels, orderStatusLabel, orderAction, canCancelOrder, orderCancellationDescription, orderMoney, orderDate, type OrderQuery, type OrderPage, type OrderDetails, type OrderStatus, type StockConflict } from "./orders";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
@@ -180,7 +181,9 @@ export function OrdersPage({ token, onUnauthorized, onConfirmed, onBusy }: {
       setArchiving(false);
     } catch (reason) {
       if (!mounted.current) return;
-      const message = failure(reason); setConfirmError(message); setConfirming(false); setCancelling(false); setArchiving(false); toast.error(message);
+      setConfirming(false); setCancelling(false); setArchiving(false);
+      if (isDemoBlocked(reason)) return; // demonstração: nada mudou no servidor; só o toast neutro
+      const message = failure(reason); setConfirmError(message); toast.error(message);
       if (reason instanceof ManagerApiError && reason.conflicts?.length) setConflicts(reason.conflicts);
       else {
         // A response can be lost after commit or another admin can have changed it.
@@ -200,7 +203,7 @@ export function OrdersPage({ token, onUnauthorized, onConfirmed, onBusy }: {
     if (pending.current || !detail) return;
     pending.current = true; setBusy(true); callbacks.current.onBusy(true);
     try { await api.archiveOrder(detail.id); if (!mounted.current) return; setConfirming(false); setArchiving(false); setSelected(null); setRevision(value => value + 1); notify.positive(`Pedido #${detail.number} arquivado.`); callbacks.current.onConfirmed(); }
-    catch (reason) { if (mounted.current) { const message = failure(reason); setConfirmError(message); toast.error(message); } }
+    catch (reason) { if (mounted.current && !isDemoBlocked(reason)) { const message = failure(reason); setConfirmError(message); toast.error(message); } }
     finally { pending.current = false; if (mounted.current) { setBusy(false); callbacks.current.onBusy(false); } }
   }
 

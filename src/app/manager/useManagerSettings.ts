@@ -1,6 +1,5 @@
-import { announceDemoBlock, readDemoBlock } from "../lib/demo";
+import { notifyError, throwIfDemoBlocked } from "../lib/demo";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { notify } from "../lib/notifications";
 import { isStockBadgeSettings, type StockBadgeSettings } from "../../../backend/src/lib/stock-badges";
 
@@ -22,8 +21,7 @@ export function useManagerSettings(token: string, path: string, onUnauthorized: 
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: method === "PUT" ? JSON.stringify(value) : undefined
     });
-    const demoBlock = await readDemoBlock(response);
-    if (demoBlock) { announceDemoBlock(demoBlock); throw new Error(demoBlock); }
+    await throwIfDemoBlocked(response);
     if (response.status === 401 || response.status === 403) {
       const message = "Sua sessão administrativa não está autorizada. Entre novamente.";
       unauthorized.current(message);
@@ -61,7 +59,7 @@ export function useManagerSettings(token: string, path: string, onUnauthorized: 
       notify.positive("Configurações salvas com sucesso!");
       return true;
     } catch (reason) {
-      if (mounted.current) toast.error(reason instanceof Error && reason.name !== "AbortError" ? reason.message : "Não foi possível salvar. Verifique a conexão e tente novamente.");
+      if (mounted.current) notifyError(reason instanceof Error && reason.name === "AbortError" ? null : reason, "Não foi possível salvar. Verifique a conexão e tente novamente.");
       return false;
     } finally {
       clearTimeout(timeout);

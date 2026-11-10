@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { notify } from "../lib/notifications";
+import { isDemoBlocked } from "../lib/demo";
 import { emptyAddress, formatCep, lookupCep, type Address } from "../lib/address";
 import { formatWhatsapp, storeDetailsRequest } from "../lib/store-settings";
 import { hoursDraft, hoursToInput, WEEK_DAYS, dayLabels, type HoursDraft, type WeekDay } from "../lib/business-hours";
@@ -111,7 +112,7 @@ export function StoreDetailsForm({ token, onUnauthorized, onBusy, disabled = fal
         setHours(previous => hoursDraft(details.businessHours, previous));
         notify.positive("Dados da loja salvos com sucesso!"); window.dispatchEvent(new Event("store-details-updated"));
       } catch (reason) {
-        if (!alive.current) return;
+        if (!alive.current || isDemoBlocked(reason)) return; // demonstração: só o toast neutro, sem erro inline
         const message = reason instanceof Error && reason.name !== "AbortError" ? reason.message : "Não foi possível salvar. Tente novamente.";
         toast.error(message);
         setSaveError(message);

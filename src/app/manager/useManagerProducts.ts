@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { isDemoBlocked, notifyError } from "../lib/demo";
 import { notify } from "../lib/notifications";
 import { createManagerApi, ManagerApiError } from "./api";
 import type { ManagedProduct, ProductInput } from "./products";
@@ -19,6 +19,7 @@ export function useManagerProducts(token: string, onUnauthorized: (message: stri
   const callbacks = useRef({ onUnauthorized, onChanged });
   callbacks.current = { onUnauthorized, onChanged };
   const fail = useCallback((reason: unknown) => {
+    if (isDemoBlocked(reason)) return; // já avisado pelo toast neutro de demonstração
     if (reason instanceof ManagerApiError && [401, 403].includes(reason.status)) {
       callbacks.current.onUnauthorized(reason.message);
     } else setError(reason instanceof Error ? reason.message : "Não foi possível concluir a operação.");
@@ -49,10 +50,10 @@ export function useManagerProducts(token: string, onUnauthorized: (message: stri
     } catch (reason) {
       if (mounted.current) {
         if (category) {
-          toast.error(reason instanceof Error ? reason.message : "Não foi possível atualizar a categoria.");
+          notifyError(reason, "Não foi possível atualizar a categoria.");
           if (reason instanceof ManagerApiError && [401, 403].includes(reason.status)) callbacks.current.onUnauthorized(reason.message);
         } else if (carousel && !(reason instanceof ManagerApiError && [401, 403].includes(reason.status))) {
-          toast.error(reason instanceof Error ? reason.message : "Não foi possível atualizar o carrossel.");
+          notifyError(reason, "Não foi possível atualizar o carrossel.");
           setRevision(value => value + 1);
         } else fail(reason);
       }

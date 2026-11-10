@@ -1,5 +1,5 @@
 import { adaptCategories, type Category } from "../lib/categories.ts";
-import { announceDemoBlock, DEMO_BLOCK_STATUS, readDemoBlock } from "../lib/demo.ts";
+import { DemoBlockedError, throwIfDemoBlocked } from "../lib/demo.ts";
 import { adaptProduct } from "../lib/products.ts";
 import type { ManagedProduct, ProductInput } from "./products.ts";
 import { orderQueryString, type CancellableOrderStatus, type OrderQuery, type OrderPage, type OrderDetails, type StockConflict, type OrderSummary } from "./orders.ts";
@@ -32,8 +32,7 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
         body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal, cache: "no-store"
       });
       if (response.status === 401) throw new ManagerApiError(401, "Sua sessão expirou. Entre novamente.");
-      const demoBlock = await readDemoBlock(response);
-      if (demoBlock) { announceDemoBlock(demoBlock); throw new ManagerApiError(DEMO_BLOCK_STATUS, demoBlock); }
+      await throwIfDemoBlocked(response);
       if (response.status === 403) throw new ManagerApiError(403, "Acesso administrativo não autorizado.");
       const data = await response.json().catch(() => null);
       if (!response.ok) {
@@ -42,7 +41,7 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
       }
       return data;
     } catch (error) {
-      if (error instanceof ManagerApiError) throw error;
+      if (error instanceof ManagerApiError || error instanceof DemoBlockedError) throw error;
       throw new ManagerApiError(0, "Falha de conexão. Verifique a lista antes de tentar novamente.");
     } finally {
       clearTimeout(timeout);
@@ -80,8 +79,7 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
           method: "POST", headers: { Authorization: `Bearer ${token}` }, body, signal: controller.signal
         });
         if (response.status === 401) throw new ManagerApiError(401, "Sua sessão expirou. Entre novamente.");
-      const demoBlock = await readDemoBlock(response);
-      if (demoBlock) { announceDemoBlock(demoBlock); throw new ManagerApiError(DEMO_BLOCK_STATUS, demoBlock); }
+        await throwIfDemoBlocked(response);
         if (response.status === 403) throw new ManagerApiError(403, "Acesso administrativo não autorizado.");
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new ManagerApiError(response.status, data?.error || "Não foi possível enviar a imagem. Tente novamente.");
@@ -91,7 +89,7 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
         }
         return data.url;
       } catch (error) {
-        if (error instanceof ManagerApiError) throw error;
+        if (error instanceof ManagerApiError || error instanceof DemoBlockedError) throw error;
         throw new ManagerApiError(0, "Não foi possível enviar a imagem. Verifique a conexão e tente novamente.");
       } finally {
         clearTimeout(timeout);

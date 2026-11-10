@@ -6,6 +6,7 @@ import { manualBadgeMaxLength } from "../../../backend/src/lib/manual-badges.ts"
 import { audiences, labels, normalizeHex, toDraft, toInput, validateDraft, type ManagedProduct, colorDraft, type ColorDraft, type ProductDraft, type ProductInput } from "./products";
 import type { Category } from "../lib/categories";
 import { CategoryEditor } from "./CategoryEditor";
+import { isDemoBlocked } from "../lib/demo";
 import { Button } from "../components/ui/button";
 
 type EyeDropperConstructor = new () => { open: (options?: { signal: AbortSignal }) => Promise<{ sRGBHex: string }> };
@@ -56,7 +57,7 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
       }));
       setUploadNotice({ key, error: false, message: "Imagem enviada. Salve o produto para confirmar a alteração." });
     } catch (error) {
-      if (!controller.signal.aborted) setUploadNotice({ key, error: true, message: error instanceof Error ? error.message : "Não foi possível enviar a imagem. Tente novamente." });
+      if (!controller.signal.aborted && !isDemoBlocked(error)) setUploadNotice({ key, error: true, message: error instanceof Error ? error.message : "Não foi possível enviar a imagem. Tente novamente." });
     } finally {
       if (uploadJob.current?.controller === controller) { uploadJob.current = null; setUploading(null); }
     }

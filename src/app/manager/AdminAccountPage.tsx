@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { Account } from "../lib/auth";
 import { accountRequest } from "../lib/account";
+import { isDemoBlocked } from "../lib/demo";
 import { Button } from "../components/ui/button";
 import { Lock, Mail } from "lucide-react";
 import { PasswordRequirements } from "../components/PasswordRequirements";
@@ -40,7 +41,7 @@ export function AdminAccountPage({ token, user, onUpdated }: { token: string; us
     try {
       const result = await accountRequest<{ account: Account }>(token, "PATCH", { email }, "/conta/admin");
       setEmail(result.account.email); onUpdated(token, result.account); setSuccess("E-mail atualizado com sucesso.");
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível atualizar o e-mail."); }
+    } catch (reason) { if (!isDemoBlocked(reason)) setError(reason instanceof Error ? reason.message : "Não foi possível atualizar o e-mail."); }
     finally { pending.current = false; setSaving(false); }
   }
   async function savePassword(event: FormEvent) {
@@ -51,7 +52,7 @@ export function AdminAccountPage({ token, user, onUpdated }: { token: string; us
     try {
       await accountRequest(token, "PUT", passwords, "/conta/admin/senha");
       setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" }); setPasswordSuccess("Senha alterada com sucesso.");
-    } catch (reason) { setPasswordError(reason instanceof Error ? reason.message : "Não foi possível alterar sua senha."); }
+    } catch (reason) { if (!isDemoBlocked(reason)) setPasswordError(reason instanceof Error ? reason.message : "Não foi possível alterar sua senha."); }
     finally { pending.current = false; setSaving(false); }
   }
 
