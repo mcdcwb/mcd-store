@@ -9,7 +9,8 @@ async function login(page: Page, role: "ADMIN" | "USER" = "ADMIN") {
   await page.getByLabel("Senha", { exact: true }).fill(process.env[role === "ADMIN" ? "E2E_ADMIN_PASSWORD" : "E2E_USER_PASSWORD"]!);
   await page.locator('form button[type="submit"]').click();
   if (role === "ADMIN") await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
-  else await expect(page.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
+  // Cliente: painel em modo leitura (modo demonstração, PANEL_READ_ONLY_FOR_USERS=true no servidor de testes).
+  else await expect(page.getByRole("note").filter({ hasText: "Modo demonstração — explore à vontade, as alterações não são salvas." })).toBeVisible();
 }
 async function token(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem("mcd-store_auth_v1")!).accessToken as string);
@@ -374,19 +375,24 @@ for (const behavior of ["unsupported", "cancelled", "failed"]) {
   });
 }
 
-test("anonymous and USER accounts cannot access administrative routes or mutate products", async ({ page }) => {
+test("anonymous cannot access administrative routes; USER reads the panel but cannot mutate products", async ({ page }) => {
   await page.goto("/manager/produtos/novo");
   await expect(page.getByRole("heading", { name: "Acesso administrativo" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Salvar produto" })).toHaveCount(0);
   await login(page, "USER");
   const accessToken = await token(page);
-  for (const path of ["/manager", "/manager/produtos", "/manager/produtos/novo", "/manager/produtos/1/editar"]) {
+  const banner = page.getByRole("note").filter({ hasText: "Modo demonstração — explore à vontade, as alterações não são salvas." });
+  for (const path of ["/manager", "/manager/produtos", "/manager/produtos/novo"]) {
     await page.goto(path);
-    await expect(page.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Navegação administrativa" })).toHaveCount(0);
+    await expect(banner).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Navegação administrativa" }).getByRole("link", { name: "Minha Conta" })).toHaveCount(0);
   }
+  // Escrita do cliente no painel: 403 de demonstração, nada é criado.
+  const before = (await (await page.request.get("/api/produtos/admin", { headers: { Authorization: `Bearer ${accessToken}` } })).json()).length;
   const response = await page.request.post("/api/produtos", { headers: { Authorization: `Bearer ${accessToken}` }, data: {} });
   expect(response.status()).toBe(403);
+  expect((await response.json()).demo).toBe(true);
+  expect((await (await page.request.get("/api/produtos/admin", { headers: { Authorization: `Bearer ${accessToken}` } })).json()).length).toBe(before);
 });
 
 test("ADMIN login redirects to manager, dashboard uses real totals and mobile navigation fits", async ({ page }, testInfo) => {

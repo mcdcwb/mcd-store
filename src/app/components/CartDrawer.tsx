@@ -5,7 +5,7 @@ import { ProductImage } from "./ProductImage";
 import { formatPrice } from "../lib/presentation";
 import { stockFor, type Size } from "../lib/products";
 
-interface AuthUser { id: number; name: string; email: string; role: "USER" | "ADMIN" | "DEMO" }
+interface AuthUser { id: number; name: string; email: string; role: "USER" | "ADMIN" }
 
 export function CartDrawer({
   busy,

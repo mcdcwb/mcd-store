@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
-import { requireAdmin } from "../middlewares/require-admin.js";
+import { requireAdminOrReadOnly } from "../middlewares/require-admin-or-read-only.js";
 import { settingsSchema, storeDetailsSchema } from "../schemas/settings.schema.js";
 
 import { stockSettingsSelect, storeDetailsSelect, publicStoreDetails, storeDetailsData } from "../services/settings.service.js";
@@ -14,7 +14,8 @@ export function createSettingsRoutes(database: Pick<typeof prisma, "storeSetting
     res.json({ ...publicStoreDetails(row), lowStockThreshold: row.lowStockThreshold, showLowStockBadge: row.showLowStockBadge, showLastUnitBadge: row.showLastUnitBadge });
   });
   router.all("/public", (_req, res) => { res.status(405).json({ error: "Método não permitido." }); });
-  router.use(requireAdmin);
+  // Painel: ADMIN completo; cliente (USER) só leitura quando PANEL_READ_ONLY_FOR_USERS=true.
+  router.use(requireAdminOrReadOnly);
   router.get("/store", async (_req, res) => {
     res.set("Cache-Control", "no-store");
     res.json(publicStoreDetails(await database.storeSettings.findUniqueOrThrow({ where: { id: 1 }, select: storeDetailsSelect })));

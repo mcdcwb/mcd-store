@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 
-// Painel demonstrativo (role DEMO). O backend responde 403 { demo: true, message } a qualquer escrita.
+// Modo demonstração: o cliente (USER) navega pelo painel em modo leitura. O backend responde
+// 403 { demo: true, message } a qualquer escrita dele nas rotas do painel (requireAdminOrReadOnly).
 // Este arquivo é o ÚNICO responsável pelo aviso: throwIfDemoBlocked mostra o toast neutro e lança
 // DemoBlockedError (status 423, que NÃO desloga: os tratamentos de 401/403 continuam valendo só para
 // sessões realmente inválidas). As telas usam notifyError/isDemoBlocked e ignoram esse erro: sem toast
@@ -8,8 +9,6 @@ import { toast } from "sonner";
 export const DEMO_MESSAGE = "Modo demonstração: alterações não são salvas.";
 export const DEMO_BLOCK_STATUS = 423;
 export const DEMO_TOAST_ID = "demo-blocked";
-export const isDemoRole = (role: string | undefined | null) => role === "DEMO";
-export const isAdminLike = (role: string | undefined | null) => role === "ADMIN" || role === "DEMO";
 
 export class DemoBlockedError extends Error {
   readonly status = DEMO_BLOCK_STATUS;

@@ -50,7 +50,8 @@ test("public reading and administrative authorization", async (t) => {
             assert.equal(response.status, 200);
             assert.deepEqual(await response.json(), {
                 admin: { id: admin.id, email },
-                account: { id: admin.id, name: email.split("@")[0], email, role: "ADMIN" }
+                account: { id: admin.id, name: email.split("@")[0], email, role: "ADMIN" },
+                panelAccess: "admin"
             });
         });
         await t.test("invalid JWTs cannot mutate products", async () => {

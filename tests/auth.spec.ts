@@ -132,9 +132,8 @@ test("customer menu opens only by click, toggles, navigates, restores session an
   await expect(menu).toHaveCount(0);
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await trigger.click();
-  await expect(menu.locator('a, button:not([role="switch"])')).toHaveText(["Minha Conta", "Favoritos", "Meus Pedidos", "Sair"]);
-  // Cliente logado também vê o interruptor do modo demonstração, desligado por padrão.
-  await expect(menu.getByRole("switch", { name: "Modo demonstração" })).toHaveAttribute("aria-checked", "false");
+  // O modo demonstração é um link para o painel em modo leitura (sem trocar de conta).
+  await expect(menu.locator("a, button")).toHaveText(["Minha Conta", "Favoritos", "Meus Pedidos", "Painel administrativo (demo)", "Sair"]);
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await trigger.click();
   await expect(menu).toHaveCount(0);
@@ -213,6 +212,44 @@ test("customer private page is hidden while validating and after token rejection
   rejectSession();
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key) === null, storageKey)).toBe(true);
   await expect(page.getByRole("heading", { name: "Área de clientes" })).toBeVisible();
+});
+
+test("modo demonstração: o próprio cliente navega no painel em modo leitura e volta para a loja", async ({ page }) => {
+  await loginCustomer(page);
+  const trigger = page.getByRole("button", { name: "Cliente", exact: true });
+  const banner = page.getByRole("note").filter({ hasText: "Modo demonstração — explore à vontade, as alterações não são salvas." });
+  await expect(banner).toHaveCount(0); // na loja não há faixa
+  await trigger.click();
+  await page.getByRole("navigation", { name: "Menu da conta" }).getByRole("link", { name: "Painel administrativo (demo)" }).click();
+  await expect(page).toHaveURL(/\/manager$/);
+  await expect(banner).toBeVisible();
+  const sidebar = page.getByRole("navigation", { name: "Navegação administrativa" });
+  await expect(sidebar.getByRole("link", { name: "Pedidos" })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Minha Conta" })).toHaveCount(0);
+  await expect(page.locator("aside").getByText("(demo)", { exact: true })).toBeVisible();
+
+  // Salvar no painel: um único toast neutro, nenhum toast de erro.
+  await page.goto("/manager/settings");
+  const threshold = page.locator("#low-stock-threshold");
+  await expect(threshold).toBeEnabled();
+  await threshold.fill(String(Number(await threshold.inputValue()) + 1));
+  const save = threshold.locator("xpath=ancestor::form").locator('button[type="submit"]');
+  for (let i = 0; i < 3; i++) await save.click();
+  const toasts = page.locator("[data-sonner-toast]");
+  await expect(toasts.filter({ hasText: "Modo demonstração: alterações não são salvas." })).toHaveCount(1);
+  await expect(page.locator('[data-sonner-toast][data-type="error"]')).toHaveCount(0);
+  await expect(save).toBeEnabled();
+
+  // A conta administrativa não existe para o cliente: vai para a Minha Conta da loja.
+  await page.goto("/manager/minha-conta");
+  await expect(page).toHaveURL(/\/minha-conta$/);
+
+  // Voltar para a loja: mesma conta, sem faixa.
+  await page.goto("/manager");
+  await banner.getByRole("link", { name: "Voltar para a loja" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(banner).toHaveCount(0);
+  await expect(trigger).toBeVisible();
 });
 
 test("administrator keeps existing controls and cannot open customer content", async ({ page }) => {

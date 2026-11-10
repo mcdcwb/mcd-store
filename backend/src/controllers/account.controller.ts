@@ -24,7 +24,7 @@ export async function changePassword(req: Request, res: Response) {
 }
 
 export async function getAdminProfile(_req: Request, res: Response) {
-    if (res.locals.account.role !== "ADMIN" && res.locals.account.role !== "DEMO") return res.status(403).json({ error: "Acesso exclusivo para administradores." });
+    if (res.locals.account.role !== "ADMIN") return res.status(403).json({ error: "Acesso exclusivo para administradores." });
     const profile = await service.getAdminProfile(res.locals.account.id);
     return profile ? res.json(profile) : res.status(404).json({ error: "Conta não encontrada." });
 }

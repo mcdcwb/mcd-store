@@ -18,10 +18,10 @@ import { Manager } from "./manager/Manager";
 import { fetchCarouselProducts, categoryValue, catalogCategories, catalogSizes, isNumericSize, stockFor, type Product, type Size } from "./lib/products";
 import { useShopping } from "./hooks/useShopping";
 import { useAuth } from "./hooks/useAuth";
-import { DemoBanner } from "./components/DemoBanner";
 import { notify } from "./lib/notifications";
 import { useLocation, useNavigate } from "react-router";
 import { AccountMenu } from "./components/AccountMenu";
+import { panelAccessOf } from "./lib/auth";
 import { FilterSection, FilterOptions } from "./components/CatalogFilters";
 import { AccountPage } from "./components/AccountPage";
 import { MyOrdersPage } from "./components/MyOrdersPage";
@@ -84,7 +84,7 @@ export default function App() {
   }, [selectedCategory, activeCategory]);
   const [selectedSizes, setSelectedSizes] = useState<Size[]>([]);
   const [catalogSort, setCatalogSort] = useState<CatalogSort>(null);
-  const { user, accessToken, validating, sessionError, login, demoActive, demoEnded, enterDemo, exitDemo, register, logout, clearError: clearAuthError, invalidate, updateAccount } = useAuth();
+  const { user, accessToken, validating, sessionError, login, register, logout, clearError: clearAuthError, invalidate, updateAccount } = useAuth();
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -209,7 +209,7 @@ export default function App() {
     const success = await login(email, password, signal);
     if (success) {
       setAuthOpen(false);
-      if (success.role === "ADMIN" || success.role === "DEMO") navigate("/manager");
+      if (success.role === "ADMIN") navigate("/manager");
     }
   }
 
@@ -218,24 +218,6 @@ export default function App() {
     setAuthMode("login");
   }
 
-  // Quando a sessão DEMO termina (expirou, 401 ou "Voltar para minha conta"), o cliente volta à loja.
-  // Reage só quando o contador avança (navigate muda de referência a cada troca de rota).
-  const handledDemoEnd = useRef(demoEnded);
-  useEffect(() => {
-    if (demoEnded === handledDemoEnd.current) return;
-    handledDemoEnd.current = demoEnded;
-    if (window.location.pathname.startsWith("/manager")) navigate("/");
-  }, [demoEnded, navigate]);
-  // Modo demonstração (interruptor do menu da conta): troca só a sessão no front.
-  async function toggleDemo(enable: boolean) {
-    if (!enable) return leaveDemo();
-    try { if (await enterDemo()) navigate("/manager"); }
-    catch (error) { notify.error(error instanceof Error ? error.message : "Não foi possível abrir o modo demonstração."); }
-  }
-  async function leaveDemo() {
-    await exitDemo();
-    navigate("/");
-  }
   function handleLogout() {
     clearCheckoutDraft(); setCheckoutIntent(false);
     logout();
@@ -356,7 +338,6 @@ export default function App() {
     return <>
       <Manager user={user} token={accessToken} validating={validating} sessionError={authOpen ? null : sessionError}
         onLogin={() => { setAuthMode("login"); setAuthOpen(true); }} onLogout={handleLogout}
-        onExitDemo={leaveDemo}
         onUnauthorized={message => invalidate(accessToken, message)} onChanged={() => { retryProducts(); retryCarousel(); }} onAccountUpdated={updateAccount} />
       {authOpen && <AuthModal mode={authMode} onClose={() => setAuthOpen(false)} onLogin={handleLogin}
         onRegister={handleRegister} onSwitchMode={() => { clearAuthError(); setAuthMode(mode => mode === "login" ? "register" : "login"); }}
@@ -368,7 +349,6 @@ export default function App() {
     <div className="min-h-screen bg-background font-sans text-foreground">
       {shoppingStatus}
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      {user?.role === "DEMO" && <DemoBanner onExit={demoActive ? leaveDemo : undefined} />}
       <header className="sticky top-0 z-50 relative bg-card/95 [&_button]:text-[15px] backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
@@ -448,7 +428,7 @@ export default function App() {
 
             {/* Right actions */}
             <div className="flex items-center gap-3 md:gap-2">
-              {user ? <AccountMenu name={user.name} role={user.role} onLogout={handleLogout} demoActive={demoActive} onToggleDemo={toggleDemo} /> : (<button
+              {user ? <AccountMenu name={user.name} role={user.role} panelAccess={panelAccessOf(user)} onLogout={handleLogout} /> : (<button
                 onClick={() => { setAuthOpen(true); }}
                 className="hidden md:flex items-center gap-1.5 text-[15px] font-medium px-3 py-1.5 rounded-sm border border-t-gray-400 border-r-gray-400 border-b-gray-300 border-l-gray-300 bg-muted text-muted-foreground cursor-pointer transition-all duration-150 hover:translate-y-px hover:text-primary hover:border-t-gray-600 hover:border-r-gray-600 hover:border-b-gray-500 hover:border-l-gray-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.45)] active:translate-y-0.5 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] focus-visible:outline-2 focus-visible:outline-primary"
               >
@@ -510,7 +490,7 @@ export default function App() {
                   Entrar
                 </button>
               )}
-              {(user?.role === "ADMIN" || user?.role === "DEMO") && (
+              {user?.role === "ADMIN" && (
                 <button
                   onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
                   className="w-full text-left px-3 py-2.5 text-[15px] font-medium text-muted-foreground rounded-lg hover:bg-muted"

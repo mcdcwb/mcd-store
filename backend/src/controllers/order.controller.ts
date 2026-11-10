@@ -3,8 +3,9 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma.js";
 import { orderIdSchema, confirmOrderSchema, advanceOrderSchema, cancelOrderSchema, orderListSchema, reportPeriodSchema } from "../schemas/order.schema.js";
 import { confirmOrder, advanceOrder, cancelOrder, getOrder, listOrders, archiveOrder, orderReports, periodReport, OrderError, listCustomerOrders } from "../services/order.service.js";
-// Painel demonstrativo: dados pessoais de clientes reais saem mascarados (lib/demo-privacy.ts).
-const isDemo = (res: Response) => res.locals.account?.role === "DEMO";
+import { isReadOnlyPanel } from "../middlewares/require-admin-or-read-only.js";
+// Painel em modo leitura (cliente no modo demonstração): dados pessoais de clientes reais saem
+// mascarados (lib/demo-privacy.ts) e a busca por nome só alcança pedidos fictícios.
 export async function myOrders(_req: Request, res: Response) {
   return res.json({ items: await listCustomerOrders(res.locals.account.id) });
 }
@@ -52,13 +53,14 @@ export async function advance(req: Request, res: Response, next: NextFunction) {
 export async function list(req: Request, res: Response) {
   const input = orderListSchema.safeParse(req.query);
   if (!input.success) return res.status(400).json({ error: "Filtros ou paginação inválidos." });
-  const page = await listOrders(input.data);
-  return res.json(isDemo(res) ? { ...page, items: page.items.map(maskOrderForDemo) } : page);
+  const readOnly = isReadOnlyPanel(res);
+  const page = await listOrders(input.data, { nameSearchOnlyDemo: readOnly });
+  return res.json(readOnly ? { ...page, items: page.items.map(maskOrderForDemo) } : page);
 }
 export async function details(req: Request, res: Response, next: NextFunction) {
   const id = orderIdSchema.safeParse(req.params.id);
   if (!id.success) return res.status(400).json({ error: "Pedido inválido." });
-  try { const order = await getOrder(id.data); return res.json(isDemo(res) ? maskOrderForDemo(order) : order); }
+  try { const order = await getOrder(id.data); return res.json(isReadOnlyPanel(res) ? maskOrderForDemo(order) : order); }
   catch (error) {
     if (error instanceof OrderError) return res.status(error.status).json({ error: error.message });
     return next(error);

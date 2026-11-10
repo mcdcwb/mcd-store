@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import test from "node:test";
 import { AuthError, createAuthApi, validateLogin, validateRegistration } from "../src/app/lib/auth.ts";
-import { sessionRevalidationDelay, createAuthSession, AUTH_STORAGE_KEY, LEGACY_USER_KEY } from "../src/app/lib/auth-session.ts";
+import { sessionRevalidationDelay, createAuthSession, AUTH_STORAGE_KEY, LEGACY_USER_KEY, LEGACY_DEMO_RETURN_KEY, LEGACY_DEMO_CLEANUP_KEY } from "../src/app/lib/auth-session.ts";
 
 const account = { id: 1, name: "Cliente", email: "test@example.test", role: "USER" };
 const token = randomBytes(24).toString("hex");
@@ -42,7 +42,8 @@ test("shared login validates the returned role and token with /auth/me", async (
     return json(url.endsWith("/login") ? loginBody : { account });
   });
   const result = await api.login(" TEST@example.test ", "password");
-  assert.deepEqual(result.account, account);
+  // Sem panelAccess no /auth/me, o painel fica fechado ("none").
+  assert.deepEqual(result.account, { ...account, panelAccess: "none" });
   assert.equal(calls[0].url, "/api/auth/login");
   assert.deepEqual(JSON.parse(calls[0].init.body), { email: account.email, password: "password" });
   assert.equal(calls[1].init.headers.Authorization, "Bearer " + token);
@@ -258,4 +259,53 @@ test("long-session revalidation never overflows a browser timer or spins on an o
   assert.equal(sessionRevalidationDelay(now + 900000, now), 900000);
   assert.equal(sessionRevalidationDelay(now, now), 60000);
   assert.equal(sessionRevalidationDelay(now - 86400000, now), 60000);
+});
+test("/auth/me informa o acesso ao painel; valores desconhecidos viram \"none\"", async () => {
+  for (const [sent, expected] of [["read-only", "read-only"], ["admin", "admin"], ["none", "none"], ["total", "none"], [undefined, "none"]]) {
+    const api = createAuthApi("/api", async () => json({ account, panelAccess: sent }));
+    assert.equal((await api.me(token)).panelAccess, expected);
+  }
+});
+
+// Token com a audience do modelo antigo (só o payload importa para a limpeza; nada é validado no front).
+const legacyToken = aud => ["e30", Buffer.from(JSON.stringify({ aud, sub: "1" })).toString("base64url"), "sig"].join(".");
+
+test("limpeza única do modelo antigo: o token DEMO salvo some e o token do cliente volta a ser o ativo", async () => {
+  const storage = memoryStorage();
+  const userToken = legacyToken("mcd-store-user");
+  storage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ accessToken: legacyToken("mcd-store-demo"), expiresAt: Date.now() + 60000 }));
+  storage.setItem(LEGACY_DEMO_RETURN_KEY, JSON.stringify({ accessToken: userToken, expiresAt: Date.now() + 60000 }));
+  const seen = [];
+  const auth = createAuthSession({ me: async accessToken => { seen.push(accessToken); return account; } }, () => storage, () => memoryStorage());
+  await auth.restore();
+  assert.deepEqual(seen, [userToken]);
+  assert.equal(auth.getSnapshot().session.accessToken, userToken);
+  assert.equal(storage.getItem(LEGACY_DEMO_RETURN_KEY), null);
+  assert.equal(storage.getItem(LEGACY_DEMO_CLEANUP_KEY), "1");
+});
+
+test("limpeza única do modelo antigo: token DEMO sem cliente guardado é descartado sem chamar a API", async () => {
+  const storage = memoryStorage();
+  storage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ accessToken: legacyToken("mcd-store-demo"), expiresAt: Date.now() + 60000 }));
+  let calls = 0;
+  const auth = createAuthSession({ me: async () => { calls++; return account; } }, () => storage, () => memoryStorage());
+  await auth.restore();
+  assert.equal(calls, 0);
+  assert.equal(auth.getSnapshot().session, null);
+  assert.equal(storage.getItem(AUTH_STORAGE_KEY), null);
+});
+
+test("limpeza única do modelo antigo: sessão normal fica intacta e a limpeza não se repete", async () => {
+  const storage = memoryStorage();
+  const userToken = legacyToken("mcd-store-user");
+  storage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ accessToken: userToken, expiresAt: Date.now() + 60000 }));
+  storage.setItem(LEGACY_DEMO_RETURN_KEY, JSON.stringify({ accessToken: legacyToken("mcd-store-user"), expiresAt: Date.now() + 60000 }));
+  const auth = createAuthSession({ me: async () => account }, () => storage, () => memoryStorage());
+  await auth.restore();
+  assert.equal(auth.getSnapshot().session.accessToken, userToken);
+  assert.equal(storage.getItem(LEGACY_DEMO_RETURN_KEY), null);
+  // Com a marca gravada, uma chave antiga que reapareça não é mais tocada.
+  storage.setItem(LEGACY_DEMO_RETURN_KEY, "x");
+  await createAuthSession({ me: async () => account }, () => storage, () => memoryStorage()).restore();
+  assert.equal(storage.getItem(LEGACY_DEMO_RETURN_KEY), "x");
 });

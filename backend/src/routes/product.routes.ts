@@ -9,17 +9,20 @@ import {
     updateProduct,
     deleteProduct
 } from "../controllers/product.controller.js";
-import { requireAdmin } from "../middlewares/require-admin.js";
+import { requireAdminOrReadOnly } from "../middlewares/require-admin-or-read-only.js";
 
 const router = Router();
 
 router.get("/", getProducts);
 router.get("/carrossel", getCarouselProducts);
-router.get("/admin", requireAdmin, getAdminProducts);
-router.patch("/carrossel/ordem", requireAdmin, setCarouselOrder);
-router.post("/", requireAdmin, createProduct);
-router.patch("/:id/carrossel", requireAdmin, setProductCarousel);
-router.put("/:id", requireAdmin, updateProduct);
-router.delete("/:id", requireAdmin, deleteProduct);
+// Daqui para baixo é painel: ADMIN completo; cliente (USER) só leitura quando
+// PANEL_READ_ONLY_FOR_USERS=true. As rotas públicas da vitrine ficam acima.
+router.use(requireAdminOrReadOnly);
+router.get("/admin", getAdminProducts);
+router.patch("/carrossel/ordem", setCarouselOrder);
+router.post("/", createProduct);
+router.patch("/:id/carrossel", setProductCarousel);
+router.put("/:id", updateProduct);
+router.delete("/:id", deleteProduct);
 
 export default router;

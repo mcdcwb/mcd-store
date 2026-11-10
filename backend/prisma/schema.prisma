@@ -87,8 +87,6 @@ model ProductVariant {
 model Admin {
   favorites AdminFavorite[]
   id Int @id @default(autoincrement())
-  // Conta do painel demonstrativo (somente leitura, entra só por POST /auth/demo-login).
-  isDemo Boolean @default(false)
   email String @unique
   passwordHash String
   active Boolean @default(true)

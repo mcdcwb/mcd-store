@@ -5,11 +5,11 @@ import { Prisma } from "../generated/prisma/client.js";
 export class ShoppingError extends Error {
     constructor(public status: number, message: string) { super(message); }
 }
-type FavoriteOwner = { id: number; role: "USER" | "ADMIN" | "DEMO" };
+type FavoriteOwner = { id: number; role: "USER" | "ADMIN" };
 // A combinação favoritada: cor e tamanho são opcionais (null = não escolhido).
 export type FavoriteSelection = { productId: number; colorId: number | null; size: string | null };
 const favoriteInclude = { product: { include: productInclude }, color: { select: { id: true, colorName: true, colorValue: true, imageUrl: true, images: true } } } as const;
-// ADMIN e DEMO usam a tabela de favoritos administrativos (o DEMO só lê; escritas são bloqueadas).
+// ADMIN usa a tabela de favoritos administrativos; o cliente, a dele.
 export const favorites = (owner: FavoriteOwner) => owner.role !== "USER"
     ? prisma.adminFavorite.findMany({ where: { adminId: owner.id, product: { isPublished: true } }, include: favoriteInclude, orderBy: { id: "asc" } })
     : prisma.favorite.findMany({ where: { userId: owner.id, product: { isPublished: true } }, include: favoriteInclude, orderBy: { id: "asc" } });

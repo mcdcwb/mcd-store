@@ -2,6 +2,7 @@ import { createUser } from "../services/user.service.js";
 import type { Request, Response, NextFunction } from "express";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
 import * as authService from "../services/auth.service.js";
+import { panelReadOnlyForUsers } from "../middlewares/require-admin-or-read-only.js";
 
 export async function login(req: Request, res: Response) {
     res.setHeader("Cache-Control", "no-store");
@@ -14,16 +15,14 @@ export async function login(req: Request, res: Response) {
     return res.json(session);
 }
 
-export async function demoLogin(_req: Request, res: Response) {
-    res.setHeader("Cache-Control", "no-store");
-    const session = await authService.demoLogin();
-    if (!session) return res.status(503).json({ error: "O acesso demonstrativo está indisponível no momento." });
-    return res.json(session);
-}
-
+// panelAccess diz ao front se mostra o painel: "admin" (completo), "read-only" (cliente no modo
+// demonstração, conforme PANEL_READ_ONLY_FOR_USERS) ou "none". Só orienta a interface: quem
+// decide é o requireAdminOrReadOnly em cada requisição.
 export function me(req: Request, res: Response) {
+    const role = res.locals.account.role;
     return res.json({
         account: res.locals.account,
+        panelAccess: role === "ADMIN" ? "admin" : panelReadOnlyForUsers() ? "read-only" : "none",
         ...(res.locals.admin ? { admin: res.locals.admin } : {})
     });
 }

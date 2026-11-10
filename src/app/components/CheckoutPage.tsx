@@ -35,7 +35,7 @@ export function CheckoutPage({ user, token, validating, shopping, store, cartOpe
   return <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14 min-h-[60vh]">
     <Link to="/" className={action + " inline-flex items-center text-sm text-primary"}><ArrowLeft aria-hidden="true" size={16} className="mr-2" />Voltar para a loja</Link>
     <h1 className="font-serif text-3xl font-bold mt-5 mb-2">Checkout</h1>
-    {validating ? <p role="status">Validando sua conta...</p> : (user?.role === "ADMIN" || user?.role === "DEMO") ? <section className={panel + " mt-6"}>
+    {validating ? <p role="status">Validando sua conta...</p> : user?.role === "ADMIN" ? <section className={panel + " mt-6"}>
       <h2 className="font-semibold">Checkout exclusivo para clientes</h2><p className="mt-2">Para comprar, saia da conta administrativa e entre com uma conta de cliente.</p>
       <Link className={action + " inline-flex text-primary mt-3"} to="/manager">Ir ao painel administrativo</Link>
     </section> : !user || !token ? <section className={panel + " mt-6"}>

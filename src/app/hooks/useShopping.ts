@@ -5,7 +5,6 @@ import { notify } from "../lib/notifications";
 import { adaptProduct, selectProductColor, stockFor, type Product } from "../lib/products";
 import type { Account } from "../lib/auth";
 import { AUTH_STORAGE_KEY } from "../lib/auth-session";
-import { announceDemoBlock } from "../lib/demo";
 
 export interface CartItem { product: Product; colorId: number; size: string; quantity: number }
 // Favorito = combinação produto + cor + tamanho. `product` já vem com a cor salva aplicada
@@ -271,8 +270,6 @@ export function useShopping(products: Product[], accessToken: string | undefined
   }
   const isFavorite = (productId: number, colorId: number | null, size: string | null) => favorites.some(f => sameFavorite(f, productId, colorId, size));
   async function toggleFavorite(productId: number, colorId: number | null, size: string | null) {
-    // Favoritos gravam no banco: no modo demonstração só mostram o aviso.
-    if (user?.role === "DEMO") { announceDemoBlock(); return false; }
     if (!favoriteToken || !favoriteReady || !isCurrent()) return false;
     return favoriteFeedback.run(favoriteKey(productId, colorId, size), async () => {
       const current = generation.current;

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { rateLimit } from "express-rate-limit";
-import { requireAdmin } from "../middlewares/require-admin.js";
+import { requireAdminOrReadOnly } from "../middlewares/require-admin-or-read-only.js";
 import { uploadImage } from "../controllers/upload.controller.js";
 import { MAX_PRODUCT_IMAGE_BYTES, PRODUCT_IMAGE_TYPES, uploadProductImage, type ProductImageUploader } from "../services/upload.service.js";
 
@@ -15,7 +15,9 @@ export function createUploadRoutes(upload: ProductImageUploader = uploadProductI
             callback(null, true);
         }
     }).single("file");
-    router.post("/produtos", requireAdmin, rateLimit({
+    // Antes do rate limit e do multer: o arquivo de um cliente em modo leitura nunca é lido nem enviado.
+    router.use(requireAdminOrReadOnly);
+    router.post("/produtos", rateLimit({
         windowMs: 15 * 60 * 1000, limit: 30, keyGenerator: (_req, res) => String(res.locals.account.id),
         standardHeaders: "draft-8", legacyHeaders: false,
         message: { error: "Muitos envios de imagem. Aguarde antes de tentar novamente." }

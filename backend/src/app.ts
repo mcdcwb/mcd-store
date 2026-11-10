@@ -1,5 +1,4 @@
 import orderRoutes from "./routes/order.routes.js";
-import { blockDemoWrites } from "./middlewares/block-demo-writes.js";
 import express from "express";
 import helmet from "helmet";
 import { getJwtKey } from "./config/auth.js";
@@ -44,7 +43,6 @@ export function createApp(options: { uploadProductImage?: ProductImageUploader; 
     });
 
     app.use(express.json({ limit: "1mb" }));
-    app.use(blockDemoWrites);
     app.use("/produtos", productRoutes);
     app.use("/categorias", categoryRoutes);
     app.use("/settings", createSettingsRoutes(options.settingsDatabase));

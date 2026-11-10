@@ -1,5 +1,4 @@
-// DEMO: conta administrativa demonstrativa, somente leitura (ver middlewares/block-demo-writes.ts).
-export type AccountRole = "USER" | "ADMIN" | "DEMO";
+export type AccountRole = "USER" | "ADMIN";
 
 export interface Account {
     id: number;

@@ -1,4 +1,4 @@
-// Mascaramento de dados pessoais para o painel demonstrativo (role DEMO).
+// Mascaramento de dados pessoais no painel em modo leitura (cliente USER no modo demonstração).
 // Pedidos de clientes REAIS saem mascarados; pedidos fictícios (isDemo = true) saem completos.
 type Address = { cep: string; street: string; number: string; complement: string; neighborhood: string; city: string; state: string };
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 // Regra ÚNICA de senha nova, usada em todos os fluxos que definem senha:
 // - cadastro de cliente (registerSchema.password, POST /auth/register);
 // - troca de senha do cliente e do admin (changePasswordSchema, PUT /conta/senha e PUT /conta/admin/senha);
-// - criação de admin (createAdminSchema: seed:admin, seed:demo-admin, admin:create).
+// - criação de admin (createAdminSchema: seed:admin, admin:create).
 // Fica num arquivo próprio para evitar import circular entre auth.schema.ts e admin.schema.ts.
 // ATENÇÃO: mantenha estas regras IGUAIS às de src/app/lib/password-rules.ts (front), que mostra os
 // requisitos ao vivo. Se mudar uma, mude a outra no mesmo commit.

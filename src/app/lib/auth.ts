@@ -1,5 +1,11 @@
-export type AccountRole = "USER" | "ADMIN" | "DEMO";
-export interface Account { id: number; name: string; email: string; role: AccountRole; }
+export type AccountRole = "USER" | "ADMIN";
+// Acesso ao painel informado por GET /auth/me: "admin" (completo), "read-only" (cliente no modo
+// demonstração, conforme PANEL_READ_ONLY_FOR_USERS no backend) ou "none". Só orienta a interface;
+// o backend decide a cada requisição.
+export type PanelAccess = "admin" | "read-only" | "none";
+export interface Account { id: number; name: string; email: string; role: AccountRole; panelAccess?: PanelAccess; }
+export const panelAccessOf = (account: Account | null | undefined): PanelAccess =>
+  account?.role === "ADMIN" ? "admin" : account?.panelAccess === "read-only" ? "read-only" : "none";
 export interface AuthSession { accessToken: string; expiresAt: number; account: Account; }
 export interface RegisterInput { name: string; email: string; password: string; }
 export const AUTH_STORAGE_KEY = "mcd-store_auth_v1";
@@ -18,7 +24,7 @@ function isAccount(value: unknown): value is Account {
   return Number.isSafeInteger(account.id) && account.id > 0 &&
     typeof account.name === "string" && account.name.trim().length > 0 &&
     typeof account.email === "string" && account.email.includes("@") &&
-    (account.role === "USER" || account.role === "ADMIN" || account.role === "DEMO");
+    (account.role === "USER" || account.role === "ADMIN");
 }
 
 export function validateLogin(email: string, password: string): string | null {
@@ -71,9 +77,10 @@ export function createAuthApi(baseUrl = "/api", fetcher: typeof fetch = fetch) {
   }
 
   async function me(accessToken: string, signal?: AbortSignal): Promise<Account> {
-    const body = await request("/auth/me", { headers: { Authorization: "Bearer " + accessToken } }, signal) as { account?: unknown };
+    const body = await request("/auth/me", { headers: { Authorization: "Bearer " + accessToken } }, signal) as { account?: unknown; panelAccess?: unknown };
     if (!body || !isAccount(body.account)) throw invalidResponse();
-    return body.account;
+    const panelAccess: PanelAccess = body.panelAccess === "admin" || body.panelAccess === "read-only" ? body.panelAccess : "none";
+    return { ...body.account, panelAccess };
   }
 
   async function login(email: string, password: string, signal?: AbortSignal): Promise<AuthSession> {
@@ -84,13 +91,6 @@ export function createAuthApi(baseUrl = "/api", fetcher: typeof fetch = fetch) {
       body: JSON.stringify({ email: email.trim().toLowerCase(), password })
     }, signal);
     return acceptSession(body, signal);
-  }
-
-  // Painel demonstrativo: só um cliente logado abre a sessão DEMO (token USER no header).
-  async function demoLogin(userAccessToken: string, signal?: AbortSignal): Promise<AuthSession> {
-    const session = await acceptSession(await request("/auth/demo-login", { method: "POST", headers: { Authorization: "Bearer " + userAccessToken } }, signal), signal);
-    if (session.account.role !== "DEMO") throw invalidResponse();
-    return session;
   }
 
   async function acceptSession(raw: unknown, signal?: AbortSignal): Promise<AuthSession> {
@@ -117,5 +117,5 @@ export function createAuthApi(baseUrl = "/api", fetcher: typeof fetch = fetch) {
     if (!body || !isAccount(body.account) || body.account.role !== "USER") throw invalidResponse();
     return body.account;
   }
-  return { login, demoLogin, register, me };
+  return { login, register, me };
 }

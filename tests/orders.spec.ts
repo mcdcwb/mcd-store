@@ -172,7 +172,7 @@ test("search debounce avoids per-keystroke requests and discards stale responses
   } finally { release(); }
   await expect(rows(page)).toContainText(fixture.orders[9].number);
 });
-test("list/detail failures allow retry, empty state, loading and forbidden USER", async ({ page }) => {
+test("list/detail failures allow retry, empty state, loading and read-only USER", async ({ page }) => {
   await admin(page);
   await page.route("**/api/orders?**", route => route.fulfill({ status: 500, json: { error: "Falha temporária nos pedidos." } }));
   await search(page, "trigger-failure", 0); await expect(page.getByRole("alert")).toContainText("Falha temporária nos pedidos.");
@@ -188,8 +188,10 @@ test("list/detail failures allow retry, empty state, loading and forbidden USER"
   const session = await (await page.request.post("/api/auth/login", { data: { email: process.env.E2E_USER_EMAIL, password: process.env.E2E_USER_PASSWORD } })).json();
   const userPage = await page.context().newPage();
   await userPage.addInitScript(session => localStorage.setItem("mcd-store_auth_v1", JSON.stringify({ accessToken: session.accessToken, expiresAt: session.expiresAt })), session);
-  await userPage.goto("/manager/pedidos"); await expect(userPage.getByRole("heading", { name: "Acesso restrito" })).toBeVisible();
-  await expect(userPage.getByRole("navigation", { name: "Navegação administrativa" })).toHaveCount(0);
+  // Cliente: Pedidos em modo leitura (modo demonstração), com a faixa e sem a conta administrativa.
+  await userPage.goto("/manager/pedidos"); await expect(userPage.getByRole("heading", { name: "Pedidos", exact: true })).toBeVisible();
+  await expect(userPage.getByRole("note").filter({ hasText: "Modo demonstração — explore à vontade, as alterações não são salvas." })).toBeVisible();
+  await expect(userPage.getByRole("navigation", { name: "Navegação administrativa" }).getByRole("link", { name: "Minha Conta" })).toHaveCount(0);
 });
 
 for (const width of [320, 390, 768, 1440]) test(`normal order cycle and confirmation fit ${width}px`, async ({ page }) => {

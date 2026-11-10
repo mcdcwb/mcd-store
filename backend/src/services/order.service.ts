@@ -9,13 +9,17 @@ const orderSummarySelect = {
   total: true, fulfillmentMethod: true, status: true, isDemo: true
 } satisfies Prisma.OrderSelect;
 
-export async function listOrders(input: z.infer<typeof orderListSchema>) {
+// nameSearchOnlyDemo (painel em modo leitura): o nome do cliente só é pesquisável em pedidos
+// fictícios (isDemo); pedidos reais só aparecem pela busca por número. Isso impede descobrir se
+// uma pessoa real comprou na loja digitando o nome dela.
+export async function listOrders(input: z.infer<typeof orderListSchema>, options: { nameSearchOnlyDemo?: boolean } = {}) {
+  const nameMatch: Prisma.OrderWhereInput = { customerName: { contains: input.search, mode: "insensitive" } };
   const where: Prisma.OrderWhereInput = {
     archivedAt: null,
     ...(input.status ? { status: input.status } : {}),
     ...(input.search ? { OR: [
       { number: { contains: input.search.replace(/^#/, "") } },
-      { customerName: { contains: input.search, mode: "insensitive" } }
+      options.nameSearchOnlyDemo ? { ...nameMatch, isDemo: true } : nameMatch
     ] } : {})
   };
   return prisma.$transaction(async tx => {

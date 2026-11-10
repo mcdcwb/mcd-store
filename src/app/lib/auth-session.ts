@@ -3,28 +3,34 @@ import { AuthError, type Account, type AuthSession, type createAuthApi } from ".
 export const AUTH_STORAGE_KEY = "mcd-store_auth_v1";
 export const LEGACY_USER_KEY = "brecho_user_v1";
 export const AUTH_CHANGE_KEY = "mcd-store_auth_change_v1";
-// Modo demonstração: a sessão do CLIENTE fica guardada aqui enquanto a sessão DEMO é a ativa
-// (AUTH_STORAGE_KEY). Só o token ativo é entregue ao app; este volta a ser o ativo ao sair do demo.
-export const DEMO_RETURN_KEY = "mcd-store_auth_demo_return_v1";
+// Modelo antigo do modo demonstração (sessão DEMO trocada pela do cliente). Limpos uma única vez:
+// a chave de retorno guardava o token do CLIENTE; o token DEMO tinha a audience abaixo.
+export const LEGACY_DEMO_RETURN_KEY = "mcd-store_auth_demo_return_v1";
+export const LEGACY_DEMO_CLEANUP_KEY = "mcd-store_demo_legacy_cleanup_v1";
+const LEGACY_DEMO_AUDIENCE = "mcd-store-demo";
 
 type StorageAccess = () => Pick<Storage, "getItem" | "setItem" | "removeItem">;
-// demoEnded: contador que avança sempre que uma sessão DEMO termina (o app volta para a loja).
-type State = { session: AuthSession | null; error: string | null; validating: boolean; demoActive: boolean; demoEnded: number };
+type State = { session: AuthSession | null; error: string | null; validating: boolean };
+
+// Lê só a audience do JWT (sem validar): serve apenas para reconhecer um token DEMO antigo.
+function tokenAudience(token: string) {
+  try { return JSON.parse(atob(token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/"))).aud as unknown; }
+  catch { return null; }
+}
 
 export function createAuthSession(
   api: ReturnType<typeof createAuthApi>,
   storage: StorageAccess,
-  legacyStorage: StorageAccess,
-  options: { onDemoEnded?: () => void } = {}
+  legacyStorage: StorageAccess
 ) {
-  let state: State = { session: null, error: null, validating: true, demoActive: false, demoEnded: 0 };
-  let demoEnded = 0;
+  let state: State = { session: null, error: null, validating: true };
   let generation = 0;
+  let legacyDemoChecked = false;
   let pendingLogin: string | null = null;
   const listeners = new Set<() => void>();
 
   function publish(session: AuthSession | null, error: string | null = null, validating = false) {
-    state = { session, error, validating, demoActive: session?.account.role === "DEMO" && readReturn() !== null, demoEnded };
+    state = { session, error, validating };
     listeners.forEach(listener => listener());
   }
   function clearStorage() {
@@ -47,9 +53,23 @@ export function createAuthSession(
     } catch { /* Malformed or inaccessible storage cannot authenticate anyone. */ }
     return null;
   }
-  const readReturn = () => read(DEMO_RETURN_KEY);
-  function clearReturn() {
-    try { storage().removeItem(DEMO_RETURN_KEY); } catch { /* Storage may be blocked. */ }
+  // Uma única vez: quem testou o modelo antigo pode ter um token DEMO salvo como sessão ativa e o
+  // token do próprio cliente guardado à parte. O token do cliente volta a ser o ativo (ou a sessão é
+  // descartada) e a chave antiga some. Depois disso a marca impede repetir.
+  function clearLegacyDemoSession() {
+    if (legacyDemoChecked) return;
+    legacyDemoChecked = true;
+    try {
+      const store = storage();
+      if (store.getItem(LEGACY_DEMO_CLEANUP_KEY)) return;
+      const active = read(), saved = read(LEGACY_DEMO_RETURN_KEY);
+      if (active && tokenAudience(active.accessToken) === LEGACY_DEMO_AUDIENCE) {
+        if (saved && tokenAudience(saved.accessToken) !== LEGACY_DEMO_AUDIENCE) store.setItem(AUTH_STORAGE_KEY, JSON.stringify(saved));
+        else store.removeItem(AUTH_STORAGE_KEY);
+      }
+      store.removeItem(LEGACY_DEMO_RETURN_KEY);
+      store.setItem(LEGACY_DEMO_CLEANUP_KEY, "1");
+    } catch { /* Storage bloqueado: nada salvo, nada a limpar. */ }
   }
   function changeId() {
     try { return storage().getItem(AUTH_CHANGE_KEY); } catch { return null; }
@@ -63,46 +83,16 @@ export function createAuthSession(
     return changeId() === change && read()?.accessToken === saved.accessToken;
   }
 
-  // Sair (inclusive no modo demo) encerra as duas sessões.
   function logout(error: string | null = null) {
     generation++;
     pendingLogin = null;
     clearStorage();
-    clearReturn();
     announceChange();
     publish(null, error);
   }
 
   const login = (email: string, password: string, signal?: AbortSignal) => authenticate(() => api.login(email, password, signal), signal);
 
-  // Liga o modo demonstração: só a partir de uma sessão de CLIENTE válida. A conta do cliente
-  // não muda; o token dele é guardado em DEMO_RETURN_KEY e o token DEMO passa a ser o ativo.
-  async function enterDemo(signal?: AbortSignal) {
-    const user = state.session;
-    if (!user || user.account.role !== "USER" || read()?.accessToken !== user.accessToken) throw new AuthError("forbidden", "Entre com sua conta de cliente para usar o modo demonstração.");
-    const demo = await api.demoLogin(user.accessToken, signal);
-    if (state.session?.accessToken !== user.accessToken) return false; // a sessão mudou no meio
-    generation++;
-    try { storage().setItem(DEMO_RETURN_KEY, JSON.stringify({ accessToken: user.accessToken, expiresAt: user.expiresAt })); }
-    catch { throw new Error("Permita o armazenamento deste site para usar o modo demonstração."); }
-    save(demo);
-    announceChange();
-    publish(demo);
-    return true;
-  }
-  // Desliga o modo demonstração: a sessão guardada do cliente volta a ser a ativa e é revalidada.
-  async function exitDemo(ended = false) {
-    const saved = readReturn();
-    generation++;
-    demoEnded++;
-    clearReturn();
-    if (!saved) { logout(ended ? "A sessão demonstrativa terminou." : null); return; }
-    try { storage().setItem(AUTH_STORAGE_KEY, JSON.stringify(saved)); } catch { /* restore() decide */ }
-    announceChange();
-    publish(null, null, true);
-    if (ended) options.onDemoEnded?.();
-    await restore();
-  }
   async function authenticate(obtain: () => Promise<AuthSession>, signal?: AbortSignal) {
     const current = ++generation;
     clearStorage();
@@ -128,6 +118,7 @@ export function createAuthSession(
 
   async function restore() {
     try { legacyStorage().removeItem(LEGACY_USER_KEY); } catch { /* Ignore old mock identity. */ }
+    clearLegacyDemoSession();
     // Shared storage, not the previous in-memory identity, is authoritative for
     // choosing the credential. The account/permissions still come from /auth/me.
     if (pendingLogin && pendingLogin === changeId()) return;
@@ -148,8 +139,6 @@ export function createAuthSession(
       const account = await api.me(saved.accessToken);
       if (current !== generation) return;
       if (!unchanged(saved, change)) { await restore(); return; }
-      if (account.role !== "DEMO") clearReturn(); // sessão de retorno só existe durante o demo
-      else if (!readReturn()) { logout("A sessão demonstrativa terminou."); return; } // DEMO sem cliente para voltar
       publish({ ...saved, account });
     } catch (error) {
       if (current !== generation) return;
@@ -160,29 +149,25 @@ export function createAuthSession(
         publish(state.session, error.message);
         return;
       }
-      // Token DEMO expirado/recusado: volta para a conta do cliente, sem deslogá-lo.
-      if (readReturn()) { await exitDemo(true); return; }
       logout(error instanceof Error ? error.message : "Não foi possível validar a sessão.");
     }
   }
 
   return {
-    login, enterDemo, exitDemo, restore, logout,
+    login, restore, logout,
     clearError() {
       if (state.error) publish(state.session, null, state.validating);
     },
     invalidate(accessToken: string | undefined, error: string) {
-      if (accessToken && state.session?.accessToken === accessToken && read()?.accessToken === accessToken) {
-        // 401 no modo demo: volta para a conta do cliente em vez de deslogar.
-        if (state.session.account.role === "DEMO" && readReturn()) void exitDemo(true);
-        else logout(error);
-      }
+      if (accessToken && state.session?.accessToken === accessToken && read()?.accessToken === accessToken) logout(error);
       else void restore();
     },
     updateAccount(accessToken: string, account: Account) {
       const session = state.session;
       if (!session || session.accessToken !== accessToken || session.account.id !== account.id || session.account.role !== account.role) return;
-      publish({ ...session, account });
+      // Respostas de perfil não trazem panelAccess: mantém o que veio do /auth/me.
+      const panelAccess = account.panelAccess ?? session.account.panelAccess;
+      publish({ ...session, account: panelAccess ? { ...account, panelAccess } : account });
     },
     getSnapshot: () => state,
     cancelPending: () => { generation++; },

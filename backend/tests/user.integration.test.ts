@@ -90,7 +90,8 @@ test("shared login and /me identify customers and admins without granting custom
         assert.equal("admin" in session, false);
         const me = await http.request("/auth/me", "GET", undefined, token);
         assert.equal(me.status, 200);
-        assert.deepEqual(await me.json(), { account: { ...user, role: "USER" } });
+        // Sem PANEL_READ_ONLY_FOR_USERS=true, o cliente não tem acesso ao painel.
+        assert.deepEqual(await me.json(), { account: { ...user, role: "USER" }, panelAccess: "none" });
 
         await t.test("expired USER and ADMIN tokens remain rejected by /auth/me", async () => {
             const now = Math.floor(Date.now() / 1000);

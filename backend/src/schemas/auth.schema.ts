@@ -9,7 +9,7 @@ export const loginSchema = z.object({
 
 // Regra de senha (registerSchema.password = passwordSchema, de password.schema.ts) usada no cadastro de
 // cliente e reaproveitada por changePasswordSchema (troca de senha do cliente e do admin, PUT /conta/senha e
-// PUT /conta/admin/senha) e por createAdminSchema (criação de admin: seed:admin, seed:demo-admin, admin:create).
+// PUT /conta/admin/senha) e por createAdminSchema (criação de admin: seed:admin, admin:create).
 // ATENÇÃO: mantenha estas regras IGUAIS às de src/app/lib/password-rules.ts (front), que mostra os
 // requisitos ao vivo. Se mudar uma, mude a outra no mesmo commit.
 export const registerSchema = z.object({
