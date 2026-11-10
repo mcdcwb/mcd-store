@@ -94,7 +94,7 @@ export function StoreDetailsForm({ token, onUnauthorized, onBusy, disabled = fal
   }, [address.cep, cepChanged, saving]);
   const hasAddress = Object.values(address).some(value => value.trim());
   return <section className="mt-6 max-w-2xl rounded-xl border border-border bg-card p-6 sm:p-8" aria-labelledby="store-details-title">
-    <SettingsSectionContent title="Dados da loja" headingId="store-details-title" className="mb-3">
+    <SettingsSectionContent title="Dados da loja" headingId="store-details-title" contentClassName="mt-3">
     <p className="text-sm text-muted-foreground mb-5">Endereço comercial e contato exibidos na loja. O endereço é opcional; se preencher, informe todos os campos obrigatórios.</p>
     {!loaded ? <>{error ? <><p role="alert" className="text-destructive">{error}</p><button onClick={() => setRevision(n => n + 1)} className="min-h-11 underline text-primary">Recarregar dados da loja</button></> : <p role="status">Carregando dados da loja...</p>}</> :
     <form onSubmit={async event => {
