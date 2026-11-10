@@ -11,7 +11,8 @@
     "admin:create": "tsx src/scripts/create-admin.ts",
     "db:seed": "prisma db seed",
     "admin:create:demo": "tsx src/scripts/create-demo-admin.ts",
-    "db:seed:demo:production": "tsx src/scripts/seed-demo-production.ts"
+    "db:seed:demo:production": "tsx src/scripts/seed-demo-production.ts",
+    "seed:demo-orders": "tsx prisma/seed-demo-orders.ts"
   },
   "keywords": [],
   "dependencies": {

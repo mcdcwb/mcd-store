@@ -15,7 +15,7 @@ async function admin(page: Page) {
   await expect(page.getByRole("heading", { name: "Pedidos", exact: true })).toBeVisible();
   await page.getByLabel("Pesquisar pedidos").fill(tag);
   await expect(page.locator('section[aria-label="Lista de pedidos"] article')).toHaveCount(20);
-  await expect(page.getByText("25 pedido(s)", { exact: true })).toBeVisible();
+  await expect(page.getByText("25 pedidos", { exact: true }).first()).toBeVisible();
   return session.accessToken as string;
 }
 const rows = (page: Page) => page.locator('section[aria-label="Lista de pedidos"] article');
@@ -31,7 +31,7 @@ async function details(page: Page, index: number) {
 test("navigation, combined search/status, number/date arrows and pagination", async ({ page }) => {
   await admin(page);
   await expect(rows(page).first()).toContainText(fixture.orders[0].number);
-  await page.getByRole("button", { name: "Próxima", exact: true }).click();
+  await page.getByRole("button", { name: "Próxima página", exact: true }).first().click();
   await expect(page.getByText("Página 2 de 2", { exact: true })).toBeVisible(); await expect(rows(page)).toHaveCount(5);
   await search(page, `mArIa ${tag}`, 12); await expect(page.getByText("Página 1 de 1", { exact: true })).toBeVisible();
   await page.getByLabel("Status", { exact: true }).selectOption("PREPARING"); await expect(rows(page)).toHaveCount(2);
@@ -89,12 +89,16 @@ test("closing archive and cancellation dialogs resets the next order action", as
   await expect(dialog).toContainText("Aguardando confirmação");
 });
 
-test("reports page renders real metrics and six monthly buckets", async ({ page }) => {
+test("reports page defaults to six months grouped by week and keeps filters in the URL", async ({ page }) => {
   await admin(page);
   await page.getByRole("link", { name: "Relatórios" }).click();
   await expect(page.getByRole("heading", { name: "Relatórios", exact: true })).toBeVisible();
-  await expect(page.getByText("Faturamento mensal · últimos seis meses")).toBeVisible();
-  await expect(page.locator(".recharts-bar-rectangle")).toHaveCount(6);
+  await expect(page.getByRole("button", { name: "6 meses" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "Faturamento semanal" })).toBeVisible();
+  await page.getByRole("button", { name: "Mensal" }).click();
+  await expect(page).toHaveURL(/agrupar=mensal/);
+  await expect(page.getByRole("heading", { name: "Faturamento mensal" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Diário" })).toHaveAttribute("aria-disabled", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test("historical DELIVERY/PICKUP details, confirmation dialog, repeated submit protection and success", async ({ page }) => {

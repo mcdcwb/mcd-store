@@ -95,6 +95,8 @@ model Admin {
 }
 
 model User {
+  // Cliente fictício criado por prisma/seed-demo-orders.ts (removível com segurança).
+  isDemo Boolean @default(false)
   address UserAddress?
   phone String?
   favorites Favorite[]
@@ -202,10 +204,13 @@ model Order {
   updatedAt DateTime @updatedAt
   completedAt DateTime?
   archivedAt DateTime?
+  // Pedido fictício criado por prisma/seed-demo-orders.ts (removível com segurança).
+  isDemo Boolean @default(false)
   items OrderItem[]
   statusEvents OrderStatusEvent[]
   @@unique([userId, idempotencyKey])
   @@index([status, createdAt])
+  @@index([isDemo])
 }
 
 model OrderStatusEvent {
