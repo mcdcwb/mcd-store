@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, CircleX, Clock3, PackageCheck, Search, Store, Truck, RefreshCw } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search, RefreshCw } from "lucide-react";
+import { OrderStatusBadge } from "./OrderStatusBadge";
 import { toast } from "sonner";
 import { notify } from "../lib/notifications";
 import { createManagerApi, ManagerApiError } from "./api";
@@ -15,21 +16,57 @@ function whatsappMessage(order: Pick<OrderDetails, "number" | "status" | "fulfil
   if (order.status === "READY_OR_SHIPPED" && order.fulfillmentMethod === "PICKUP") return `Olá! Seu pedido #${order.number} está pronto para retirada na loja. Aguardamos você!`;
   return null;
 }
-function Status({ status, fulfillmentMethod }: Pick<OrderDetails, "status" | "fulfillmentMethod">) {
-  const [tone, Icon] = status === "PENDING_CONFIRMATION"
-    ? ["border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-950/70 dark:text-amber-200", Clock3]
-    : status === "PREPARING"
-      ? ["border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-700 dark:bg-sky-950/70 dark:text-sky-200", PackageCheck]
-      : status === "READY_OR_SHIPPED" && fulfillmentMethod === "PICKUP"
-        ? ["border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-200", Store]
-        : status === "READY_OR_SHIPPED"
-          ? ["border-blue-300 bg-blue-100 text-blue-900 dark:border-blue-700 dark:bg-blue-950/70 dark:text-blue-200", Truck]
-          : status === "COMPLETED"
-            ? ["border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100", CheckCircle2]
-            : ["border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-700 dark:bg-rose-950/70 dark:text-rose-200", CircleX];
-  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold shadow-sm ${tone}`}>
-    <Icon aria-hidden="true" size={15} strokeWidth={2.25} />{orderStatusLabel(status, fulfillmentMethod)}
-  </span>;
+// Paginação da lista de pedidos, renderizada no topo (na barra do "Ordenar por") e no rodapé.
+// As duas instâncias leem o mesmo resultado e chamam o mesmo onPage: nenhuma lógica nem requisição extra.
+const orderCount = (total: number) => total === 0 ? "Nenhum pedido" : total === 1 ? "1 pedido" : `${total.toLocaleString("pt-BR")} pedidos`;
+// Campo "Página [N] de Y": só aceita dígitos e só muda de página no Enter ou ao sair do campo.
+function PageInput({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
+  const [draft, setDraft] = useState(String(page));
+  const input = useRef<HTMLInputElement | null>(null);
+  // Seleciona tudo depois que o React aplicar o novo valor (trocar o valor desfaz a seleção).
+  const selectAfterRender = () => requestAnimationFrame(() => { if (document.activeElement === input.current) input.current?.select(); });
+  useEffect(() => { setDraft(String(page)); selectAfterRender(); }, [page]); // mantém topo e rodapé sincronizados
+  const commit = () => {
+    const value = Number.parseInt(draft, 10);
+    if (!draft || !Number.isSafeInteger(value)) { setDraft(String(page)); return; } // vazio/inválido: sem requisição
+    const target = Math.min(Math.max(value, 1), totalPages);
+    setDraft(String(target));
+    if (target !== page) onPage(target);
+  };
+  const step = (delta: number) => { const target = Math.min(Math.max(page + delta, 1), totalPages); if (target !== page) onPage(target); };
+  return <input ref={input} type="text" inputMode="numeric" pattern="[0-9]*" aria-label="Ir para a página" autoComplete="off"
+    disabled={totalPages <= 1} value={draft} maxLength={4}
+    onChange={event => setDraft(event.target.value.replace(/\D/g, ""))}
+    // Ao focar, seleciona tudo. Pelo mouse, o mouseup desfaria a seleção: o foco é feito à mão no mousedown.
+    onMouseDown={event => { const input = event.currentTarget; if (document.activeElement !== input) { event.preventDefault(); input.focus(); input.select(); } }}
+    onFocus={event => event.currentTarget.select()}
+    onBlur={commit}
+    onKeyDown={event => {
+      if (event.key === "Enter") { event.preventDefault(); commit(); selectAfterRender(); }
+      else if (event.key === "Escape") { event.preventDefault(); setDraft(String(page)); selectAfterRender(); }
+      else if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); step(event.key === "ArrowUp" ? 1 : -1); }
+    }}
+    className="h-11 w-14 rounded-lg border border-border bg-card px-1 text-center text-sm font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50" />;
+}
+function OrdersPagination({ result, page, loading, onPage, position }: {
+  result: OrderPage; page: number; loading: boolean; onPage: (page: number) => void; position: "top" | "bottom";
+}) {
+  // Mesmo estilo/altura dos botões "Número"/"Data" do "Ordenar por".
+  const button = `${action} inline-flex items-center gap-1 border border-border bg-card`;
+  return <nav aria-label={`Paginação de pedidos — ${position === "top" ? "topo" : "rodapé"}`}
+    className={`flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-x-5 ${position === "top" ? "md:w-auto" : "mt-5"}`}>
+    <p className="text-sm text-muted-foreground">{orderCount(result.total)}</p>
+    <div className="flex items-center gap-3 self-center sm:self-auto">
+      <button type="button" aria-label="Página anterior" disabled={loading || page <= 1} onClick={() => onPage(page - 1)} className={button}><ChevronLeft aria-hidden="true" size={16} /><span className="max-[399px]:sr-only">Anterior</span></button>
+      <div className="flex items-center justify-center gap-2 text-sm tabular-nums sm:min-w-[8.5rem]">
+        {/* Abaixo de 640px a palavra "Página" sai para o grupo caber (o campo continua com aria-label). */}
+        <span aria-hidden="true" className="hidden sm:inline">Página</span><PageInput page={page} totalPages={result.totalPages} onPage={onPage} /><span aria-hidden="true" className="whitespace-nowrap">de {result.totalPages}</span>
+        {/* Só o topo é anunciado pelo leitor de tela, para não falar em dobro. */}
+        {position === "top" && <span className="sr-only" aria-live="polite">Página {page} de {result.totalPages}</span>}
+      </div>
+      <button type="button" aria-label="Próxima página" disabled={loading || page >= result.totalPages} onClick={() => onPage(page + 1)} className={button}><span className="max-[399px]:sr-only">Próxima</span><ChevronRight aria-hidden="true" size={16} /></button>
+    </div>
+  </nav>;
 }
 export function OrdersPage({ token, onUnauthorized, onConfirmed, onBusy }: {
   token: string; onUnauthorized: (message: string) => void; onConfirmed: () => void; onBusy: (busy: boolean) => void;
@@ -66,15 +103,35 @@ export function OrdersPage({ token, onUnauthorized, onConfirmed, onBusy }: {
   const detailDialog = useRef<HTMLDivElement | null>(null);
   const confirmButton = useRef<HTMLButtonElement | null>(null);
   const listSection = useRef<HTMLElement | null>(null);
+  const listToolbar = useRef<HTMLDivElement | null>(null);
+  // Trocas de página pela paginação entram no histórico (botão "voltar" do navegador);
+  // os demais ajustes da URL (filtros, correção de página inválida) usam replace.
+  const pushPageToHistory = useRef(false);
+  const goToPage = (page: number, scroll = false) => {
+    pushPageToHistory.current = true;
+    setQuery(old => ({ ...old, page }));
+    // Pela paginação do rodapé, volta suavemente ao topo da lista (barra do "Ordenar por").
+    if (scroll) listToolbar.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  };
   const listHeight = useRef(192);
   useEffect(() => {
-    const next = new URLSearchParams(searchParams);
+    // Só reage a mudanças do estado da lista: se a URL mudou por fora (voltar/avançar), o efeito
+    // abaixo leva o estado até ela, e este não pode regravar a página antiga por cima.
+    const current = new URLSearchParams(window.location.search);
+    const next = new URLSearchParams(current);
     for (const key of ["status", "search", "sort", "direction", "page"]) next.delete(key);
     if (query.status) next.set("status", query.status);
     if (query.search.trim()) next.set("search", query.search.trim());
     next.set("sort", query.sort); next.set("direction", query.direction); next.set("page", String(query.page));
-    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
-  }, [query, searchParams, setSearchParams]);
+    const push = pushPageToHistory.current; pushPageToHistory.current = false;
+    if (next.toString() !== current.toString()) setSearchParams(next, { replace: !push });
+  }, [query, setSearchParams]);
+  // Voltar/avançar no navegador (ou um link com ?page=N) leva a lista para a página da URL.
+  useEffect(() => {
+    const raw = Number(searchParams.get("page"));
+    const urlPage = Number.isSafeInteger(raw) && raw > 0 ? raw : 1;
+    setQuery(old => old.page === urlPage ? old : { ...old, page: urlPage });
+  }, [searchParams]);
   function failure(reason: unknown) {
     if (reason instanceof ManagerApiError && [401, 403].includes(reason.status)) callbacks.current.onUnauthorized(reason.message);
     return reason instanceof Error ? reason.message : "Não foi possível concluir a operação.";
@@ -153,28 +210,34 @@ export function OrdersPage({ token, onUnauthorized, onConfirmed, onBusy }: {
       <label className="flex flex-col gap-2 text-sm"><span className="flex items-center gap-2"><Search size={14} aria-hidden="true" />Pesquisar pedidos</span><input ref={searchInput} type="search" maxLength={100} value={query.search} onChange={event => setQuery(old => ({ ...old, search: event.target.value, page: 1 }))} placeholder="Número ou nome do cliente" className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 focus-visible:outline-2 focus-visible:outline-primary" /></label>
       <label className="flex flex-col gap-2 text-sm"><span>Status</span><select aria-label="Status" value={query.status} onChange={event => setQuery(old => ({ ...old, status: event.target.value as OrderStatus | "", page: 1 }))} className="min-h-11 min-w-0 w-full rounded-lg border border-border bg-background px-3 py-2 focus-visible:outline-2 focus-visible:outline-primary"><option value="">Todos</option>{Object.entries(orderStatusLabels).map(([value, label]) => <option key={value} value={value}>{label === "Finalizado" ? "Finalizados" : label === "Cancelado" ? "Cancelados" : label}</option>)}</select></label>
     </div>
-    <div className="flex flex-wrap gap-2 items-center mb-4" aria-label="Ordenação de pedidos"><span className="text-sm text-muted-foreground">Ordenar por:</span>{(["number", "date"] as const).map(field => {
+    <div ref={listToolbar} className="mb-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-x-4 gap-y-3"><div role="group" className="flex flex-wrap gap-2 items-center" aria-label="Ordenação de pedidos"><span className="text-sm text-muted-foreground">Ordenar por:</span>{(["number", "date"] as const).map(field => {
       const active = query.sort === field; const Icon = active ? query.direction === "asc" ? ArrowUp : ArrowDown : ArrowUpDown;
       const label = field === "number" ? "Número" : "Data";
       return <button key={field} type="button" onClick={() => sort(field)} aria-pressed={active} aria-label={`Ordenar por ${label.toLowerCase()}${active ? `: ${query.direction === "asc" ? "crescente" : "decrescente"}` : ""}`} className={`${action} inline-flex items-center gap-2 border border-border ${active ? "bg-primary/10 text-primary" : "bg-card"}`}>{label}<Icon size={16} aria-hidden="true" /></button>;
-    })}</div>
+    })}</div>{result && !error && <OrdersPagination position="top" result={result} page={Math.min(query.page, result.totalPages)} loading={loading} onPage={page => goToPage(page)} />}</div>
     <section ref={listSection} style={{ minHeight: loading ? listHeight.current : 192 }} aria-label="Lista de pedidos" aria-busy={loading} className="min-h-48 space-y-3">
-      {loading ? <p role="status" className="py-16 text-center text-muted-foreground">Carregando pedidos...</p> : error ? <div role="alert" className="rounded-xl border border-destructive/20 bg-card p-5"><p className="text-destructive">{error}</p><button type="button" onClick={() => setRevision(old => old + 1)} className={`${action} text-primary underline`}>Tentar novamente</button></div> : result?.items.length ? result.items.map(order => <article key={order.id} aria-label={`Pedido #${order.number}`} className="rounded-xl border border-border bg-card p-4 sm:p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] items-center">
-        <div className="min-w-0"><h2 className="font-semibold">#{order.number}</h2><p className="text-sm mt-1 break-words">{order.customerName}</p><p className="text-sm text-muted-foreground mt-1">{orderDate(order.createdAt)} · {order.fulfillmentMethod === "DELIVERY" ? "Entrega" : "Retirada"}</p></div>
-        <div className="min-w-0 space-y-2"><p className="font-semibold break-words">{orderMoney(order.total)}</p><Status status={order.status} fulfillmentMethod={order.fulfillmentMethod} /></div>
-        <button type="button" onClick={event => { openedFrom.current = event.currentTarget; setSelected(order.id); }} className={`${action} text-primary underline justify-self-start sm:col-span-2 lg:col-span-1`}>Ver detalhes<span className="sr-only"> do pedido #{order.number}</span></button>
+      {loading ? <p role="status" className="py-16 text-center text-muted-foreground">Carregando pedidos...</p> : error ? <div role="alert" className="rounded-xl border border-destructive/20 bg-card p-5"><p className="text-destructive">{error}</p><button type="button" onClick={() => setRevision(old => old + 1)} className={`${action} text-primary underline`}>Tentar novamente</button></div> : result?.items.length ? result.items.map(order => <article key={order.id} aria-label={`Pedido #${order.number}`}
+        // Card inteiro clicável pelo "stretched button" (::after do "Ver detalhes"). O texto fica acima
+        // da camada para poder ser selecionado; um clique simples nele (sem seleção) abre os detalhes.
+        onClick={event => { if (event.target instanceof Element && event.target.closest("[data-order-card-text]") && !window.getSelection()?.toString()) event.currentTarget.querySelector<HTMLButtonElement>("button[data-order-details]")?.click(); }}
+        className="relative cursor-pointer rounded-xl border border-border bg-card p-4 sm:p-5 transition-[border-color,background-color,box-shadow] duration-150 hover:border-primary/40 hover:bg-muted/40 hover:shadow-md has-[button[data-order-details]:focus-visible]:outline-2 has-[button[data-order-details]:focus-visible]:outline-offset-2 has-[button[data-order-details]:focus-visible]:outline-primary motion-reduce:transition-none grid grid-cols-[6rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 md:grid-cols-[minmax(0,1fr)_7.5rem_13.5rem_auto] md:gap-x-6">
+        <div data-order-card-text className="relative z-[1] col-span-2 row-start-1 min-w-0 justify-self-start md:col-span-1"><h2 className="font-semibold">#{order.number}</h2><p className="text-sm mt-1 break-words">{order.customerName}</p><p className="text-sm text-muted-foreground mt-1">{orderDate(order.createdAt)} · {order.fulfillmentMethod === "DELIVERY" ? "Entrega" : "Retirada"}</p></div>
+        <p data-order-card-text className="relative z-[1] col-start-1 row-start-2 whitespace-nowrap font-semibold tabular-nums md:col-start-2 md:row-start-1 md:text-right">{orderMoney(order.total)}</p>
+        <OrderStatusBadge status={order.status} fulfillmentMethod={order.fulfillmentMethod} className="col-span-2 col-start-2 row-start-2 justify-self-start max-[399px]:col-span-3 max-[399px]:col-start-1 max-[399px]:row-start-3 md:col-span-1 md:col-start-3 md:row-start-1 md:justify-self-auto" />
+        <button type="button" data-order-details onClick={event => { openedFrom.current = event.currentTarget; setSelected(order.id); }} className={`${action} cursor-pointer focus-visible:outline-none after:absolute after:inset-0 after:cursor-pointer after:rounded-xl after:content-[''] col-start-3 row-start-1 self-start whitespace-nowrap px-2 text-primary underline justify-self-end md:col-start-4 md:self-center`}>Ver detalhes<span className="sr-only"> do pedido #{order.number}</span></button>
       </article>) : <p className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">{query.search.trim() || query.status ? "Nenhum pedido corresponde aos filtros selecionados." : "Nenhum pedido encontrado."}</p>}
     </section>
-    {result && !error && <div className="flex flex-wrap items-center justify-center gap-2 mt-5" aria-label="Paginação"><button type="button" disabled={loading || result.page <= 1} onClick={() => setQuery(old => ({ ...old, page: old.page - 1 }))} className={`${action} border border-border`}>Anterior</button><p className="text-sm" aria-live="polite">Página {result.page} de {result.totalPages}</p><button type="button" disabled={loading || result.page >= result.totalPages} onClick={() => setQuery(old => ({ ...old, page: old.page + 1 }))} className={`${action} border border-border`}>Próxima</button><p className="w-full text-center text-xs text-muted-foreground">{result.total} pedido(s)</p></div>}
+    {result && !error && <OrdersPagination position="bottom" result={result} page={Math.min(query.page, result.totalPages)} loading={loading} onPage={page => goToPage(page, true)} />}
     <Dialog open={selected !== null} onOpenChange={open => { if (!open && !pending.current) { setSelected(null); setConfirming(false); setArchiving(false); setCancelling(false); setConfirmError(""); setConflicts([]); } }}>
-      <DialogContent onCloseAutoFocus={event => { event.preventDefault(); (openedFrom.current?.isConnected ? openedFrom.current : searchInput.current)?.focus(); }} className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl min-w-0 break-words" onEscapeKeyDown={event => { if (pending.current) event.preventDefault(); }} onInteractOutside={event => { if (pending.current) event.preventDefault(); }}>
+      <DialogContent closeLabel="Fechar detalhes" onCloseAutoFocus={event => { event.preventDefault(); (openedFrom.current?.isConnected ? openedFrom.current : searchInput.current)?.focus(); }} className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl min-w-0 break-words" onEscapeKeyDown={event => { if (pending.current) event.preventDefault(); }} onInteractOutside={event => { if (pending.current) event.preventDefault(); }}>
         <div ref={detailDialog} tabIndex={-1}><DialogHeader><DialogTitle>{detail ? `Pedido #${detail.number}` : "Detalhes do pedido"}</DialogTitle><DialogDescription>Dados históricos registrados na criação do pedido.</DialogDescription></DialogHeader></div>
         {detailLoading ? <p role="status" className="py-12 text-center">Carregando detalhes...</p> : detailError ? <div role="alert"><p className="text-destructive">{detailError}</p><button type="button" onClick={() => setDetailRevision(old => old + 1)} className={`${action} text-primary underline`}>Tentar carregar detalhes novamente</button></div> : detail && <>
-          <Status status={detail.status} fulfillmentMethod={detail.fulfillmentMethod} />
+          <OrderStatusBadge status={detail.status} fulfillmentMethod={detail.fulfillmentMethod} />
           <dl className="grid gap-3 sm:grid-cols-2 text-sm"><div><dt className="text-muted-foreground">Cliente</dt><dd>{detail.customerName}</dd></div><div><dt className="text-muted-foreground">Data e horário</dt><dd>{orderDate(detail.createdAt, true)}</dd></div><div><dt className="text-muted-foreground">Recebimento</dt><dd>{detail.fulfillmentMethod === "DELIVERY" ? "Entrega" : "Retirada na loja"}</dd></div></dl>
-          <section aria-label="Contato do cliente" className="rounded-lg border border-border p-3"><h3 className="font-semibold">Telefone do cliente</h3>{normalizeWhatsapp(detail.customerPhone ?? "") ? <a className="text-sm text-primary underline" href={`https://wa.me/${normalizeWhatsapp(detail.customerPhone!)}`} target="_blank" rel="noreferrer">{formatWhatsapp(detail.customerPhone!)}</a> : <p className="text-sm text-muted-foreground">Telefone ausente ou inválido. Não é possível abrir uma conversa com segurança.</p>}</section>
+          <section aria-label="Contato do cliente" className="rounded-lg border border-border p-3"><h3 className="font-semibold">Telefone do cliente</h3>{detail.privacyMasked ? <p className="text-sm">{detail.customerPhone ?? "Não informado"} <span className="text-muted-foreground">· oculto no modo demonstração</span></p> : (normalizeWhatsapp(detail.customerPhone ?? "") ? <a className="text-sm text-primary underline" href={`https://wa.me/${normalizeWhatsapp(detail.customerPhone!)}`} target="_blank" rel="noreferrer">{formatWhatsapp(detail.customerPhone!)}</a> : <p className="text-sm text-muted-foreground">Telefone ausente ou inválido. Não é possível abrir uma conversa com segurança.</p>)}</section>
           <section><h3 className="font-semibold mb-2">{detail.fulfillmentMethod === "DELIVERY" ? "Endereço de entrega" : "Local de retirada"}</h3>{(() => {
             const address = detail.fulfillmentMethod === "DELIVERY" ? detail.deliveryAddress : detail.pickupAddress;
+            if (address && detail.privacyMasked && detail.fulfillmentMethod === "DELIVERY") return <address className="not-italic text-sm leading-6">{address.neighborhood}<br />{address.city} - {address.state}<br /><span className="text-muted-foreground">Rua, número e CEP ocultos no modo demonstração.</span></address>;
             return address ? <address className="not-italic text-sm leading-6">{address.street}, {address.number}{address.complement && <><br />{address.complement}</>}<br />{address.neighborhood}<br />{address.city} - {address.state}<br />CEP {address.cep.replace(/^(\d{5})(\d{3})$/, "$1-$2")}</address> : <p className="text-sm text-muted-foreground">Endereço não registrado neste pedido.</p>;
           })()}</section>
           <section aria-label="Itens do pedido"><h3 className="font-semibold mb-3">Itens</h3><div className="space-y-3">{detail.items.map(item => <article key={item.id} className="rounded-lg border border-border p-3 text-sm"><h4 className="font-medium">{item.quantity}x {item.productName}</h4><p className="mt-1">Cor: {item.colorName}</p><p>Tamanho: {item.size}</p><p className="mt-2">Unitário: {orderMoney(item.unitPrice)}</p><p className="font-semibold">Subtotal: {orderMoney(item.subtotal)}</p></article>)}</div></section>

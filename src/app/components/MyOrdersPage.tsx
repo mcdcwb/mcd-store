@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronDown } from "lucide-react";
 import type { OrderStatus } from "../../../backend/src/generated/prisma/enums";
 import type { FulfillmentMethod } from "../../../backend/src/generated/prisma/enums";
 import { orderDate, orderMoney } from "../manager/orders";
+import { OrderStatusBadge } from "../manager/OrderStatusBadge";
 import type { Address } from "../lib/address";
 
 type CustomerOrder = {
@@ -12,20 +13,6 @@ type CustomerOrder = {
   statusEvents: { status: OrderStatus; createdAt: string }[];
   items: { id: number; productName: string; colorName: string; size: string; quantity: number; unitPrice: string; subtotal: string }[];
 };
-function customerStatus(status: OrderStatus, method: FulfillmentMethod) {
-  if (status === "PENDING_CONFIRMATION") return "Aguardando confirma\u00e7\u00e3o";
-  if (status === "PREPARING") return "Em prepara\u00e7\u00e3o";
-  if (status === "READY_OR_SHIPPED") return method === "DELIVERY" ? "Enviado" : "Pronto para retirada";
-  if (status === "COMPLETED") return "Finalizado";
-  return "Cancelado";
-}
-function customerStatusClass(status: OrderStatus, method: FulfillmentMethod) {
-  if (status === "PREPARING") return "border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200";
-  if (status === "READY_OR_SHIPPED" && method === "PICKUP") return "border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200";
-  if (status === "COMPLETED") return "border border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200";
-  if (status === "CANCELLED") return "border border-destructive/20 bg-destructive/10 text-destructive";
-  return "border border-primary/20 bg-primary/10 text-primary";
-}
 function customerEventLabel(status: OrderStatus, method: FulfillmentMethod) {
   if (status === "PENDING_CONFIRMATION") return "Pedido solicitado — aguardando confirmação";
   if (status === "PREPARING") return "Pedido aceito e em preparação";
@@ -48,9 +35,9 @@ export function MyOrdersPage({ token, onLogin }: { token?: string; onLogin: () =
     if (!token) { setLoading(false); return; }
     const controller = new AbortController(); setLoading(true); setError("");
     fetch((import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "") + "/orders/mine", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: controller.signal })
-      .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error || "NÃ£o foi possÃ­vel carregar seus pedidos."); return data as { items: CustomerOrder[] }; })
+      .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error || "Não foi possível carregar seus pedidos."); return data as { items: CustomerOrder[] }; })
       .then(data => { if (!controller.signal.aborted) setItems(data.items); })
-      .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "NÃ£o foi possÃ­vel carregar seus pedidos."); })
+      .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Não foi possível carregar seus pedidos."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [token, revision]);
@@ -78,7 +65,7 @@ export function MyOrdersPage({ token, onLogin }: { token?: string; onLogin: () =
                       <ChevronDown aria-hidden="true" size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
                     </span>
                   </button>
-                  <span className={`rounded-full px-3 py-1 text-sm font-medium ${customerStatusClass(order.status, order.fulfillmentMethod)}`}>{customerStatus(order.status, order.fulfillmentMethod)}</span>
+                  <OrderStatusBadge status={order.status} fulfillmentMethod={order.fulfillmentMethod} />
                 </header>
                 {expanded && <div id={detailsId} className="mt-4 border-t border-border pt-1">
                   <p className="mt-4 text-sm"><strong>Recebimento:</strong> {order.fulfillmentMethod === "DELIVERY" ? "Entrega" : "Retirada na loja"}</p>

@@ -35,6 +35,8 @@ export function orderAction(order: Pick<OrderSummary, "status" | "fulfillmentMet
 export interface OrderDetails extends OrderSummary {
   updatedAt: string; completedAt: string | null; archivedAt: string | null; customerPhone: string | null; deliveryAddress: Address | null; pickupAddress: Address | null;
   items: { id: number; productName: string; colorName: string; size: string; quantity: number; unitPrice: string; subtotal: string }[];
+  /** Painel demonstrativo: dados pessoais do cliente real mascarados pelo backend. */
+  privacyMasked?: boolean;
 }
 export interface OrderPage { items: OrderSummary[]; total: number; page: number; pageSize: number; totalPages: number }
 export interface OrderQuery { search: string; status: OrderStatus | ""; sort: "date" | "number"; direction: "asc" | "desc"; page: number }
