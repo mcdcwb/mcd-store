@@ -41,6 +41,13 @@ export function AccountPage({ user, favorites, onLogin, children, accessToken, o
 
 const inputClass = "mt-1 w-full min-w-0 rounded-lg border border-border bg-input-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
 const buttonClass = "rounded-sm bg-muted text-primary border border-primary px-4 py-2 disabled:opacity-50 cursor-pointer hover:bg-primary hover:text-primary-foreground";
+// Linha entre as seções da Minha Conta (Dados pessoais | Endereço | Segurança). Um só elemento e um só
+// conjunto de classes para todas as divisões ficarem idênticas. As margens próprias (32px acima, 24px
+// abaixo) vencem o space-y do contêiner (Tailwind 4 aplica o space-y via :where, sem especificidade),
+// então o espaço é o mesmo dentro do formulário (space-y-6) e fora dele (space-y-8).
+function SectionDivider() {
+  return <hr className="mt-8 mb-6 border-border" />;
+}
 const addressFields: { key: keyof Address; label: string; max: number; autoComplete: string }[] = [
   { key: "cep", label: "CEP", max: 9, autoComplete: "postal-code" },
   { key: "street", label: "Rua / Logradouro", max: 200, autoComplete: "address-line1" },
@@ -153,6 +160,7 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
             <label className="block text-sm font-medium">E-mail<input className={inputClass} type="email" autoComplete="email" required maxLength={254} value={email} onChange={e => { setEmail(e.target.value); setSuccess(""); }} /></label>
             <label className="block text-sm font-medium">Telefone para contato<input className={inputClass} type="tel" autoComplete="tel" maxLength={40} placeholder="DDD e número, ex.: (11) 99999-9999" value={phone} onChange={e => { setPhone(e.target.value); setSuccess(""); }} /></label>
           </section>
+          <SectionDivider />
           <section aria-labelledby="address-title" className="space-y-4">
             <h2 id="address-title" className="font-serif text-xl font-bold">Endereço</h2>
             <p className="text-sm text-muted-foreground">Opcional. Se preencher, informe o endereço completo.</p>
@@ -176,7 +184,8 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
           {success && checkoutReturn && <Link to="/checkout" className="inline-flex min-h-11 items-center rounded-lg border border-yellow-400 bg-primary text-primary-foreground px-5 py-2 focus-visible:outline-2 focus-visible:outline-primary">Voltar ao checkout com alterações salvas</Link>}
         </fieldset>
       </form>
-      <section aria-labelledby="security-title" className="space-y-4 border-t border-border pt-6">
+      <SectionDivider />
+      <section aria-labelledby="security-title" className="space-y-4">
         <h2 id="security-title" className="font-serif text-xl font-bold">Segurança</h2>
         <button type="button" className={buttonClass} disabled={saving} aria-expanded={passwordOpen} aria-controls="password-form" onClick={() => { setPasswordOpen(v => !v); setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" }); setPasswordError(""); setPasswordSuccess(""); }}>Alterar senha</button>
         {passwordSuccess && <p role="status" className="text-sm text-primary">{passwordSuccess}</p>}
