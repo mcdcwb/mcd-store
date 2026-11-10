@@ -8,7 +8,10 @@
     "dev": "vite",
     "test": "node --test tests/auth.test.mjs tests/products.test.mjs tests/manager.test.mjs tests/business-hours.test.mjs tests/carousel-products.test.mjs",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "npm --prefix backend test -- browser"
+    "test:e2e": "npm --prefix backend test -- browser",
+    "record:01": "node recordings/01-home.ts",
+    "record:02": "node recordings/02-compra.ts",
+    "record:03": "node recordings/03-favoritos.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

@@ -1,0 +1,15 @@
+{
+  "name": "mcd-store-demo-recording",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Gravação em vídeo do fluxo de demonstração do cliente da MCD Store (somente localhost).",
+  "type": "module",
+  "scripts": {
+    "record": "node record-demo.mjs",
+    "validate": "node record-demo.mjs --validate",
+    "reset": "node ../backend/node_modules/tsx/dist/cli.mjs reset-demo-user.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

@@ -1,11 +1,14 @@
 node_modules/
 /backend/desktop.ini
+demo-recording/
 
 .env
 .env.*
 !.env.example
 
 /src/generated/prisma
+
+/prod-data.sql
 
 /.agents/
 /.claude/
