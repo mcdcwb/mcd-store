@@ -182,7 +182,7 @@ test("missing store address/contact and loading failures block finalization with
   await fakePopup(page);
   await page.getByRole("radio", { name: "Não preciso, irei retirar os produtos na loja" }).check();
   await expect(page.locator("main")).toContainText("local de retirada está temporariamente indisponível");
-  await expect(page.locator("main")).toContainText("contato da loja está temporariamente indisponível");
+  await expect(page.locator("main")).toContainText("contato da loja está indisponível nesta demonstração"); // texto de 0dfe107
   await expect(finalButton(page)).toBeDisabled();
   await page.route("**/api/settings/public", route => route.fulfill({ status: 503, json: { error: "Falha" } }));
   await page.reload();

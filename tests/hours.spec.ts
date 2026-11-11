@@ -59,6 +59,6 @@ test("backend error preserves hours draft and missing public data does not inven
   await expect(page.locator('[data-sonner-toast][data-type="error"]')).toContainText("horário inválido no backend");
   await page.route("**/api/settings/public", route => route.fulfill({ status: 500, json: { error: "Unavailable" } }));
   await page.getByRole("link", { name: "Ver loja", exact: true }).click(); await page.reload();
-  await expect(page.locator("footer")).toContainText("Horários de funcionamento indisponíveis.");
+  await expect(page.locator("footer")).toContainText("Horários não configurados nesta demonstração."); // rodapé de 04/11; sem inventar horários
   await expect(page.locator("footer")).not.toContainText("09:00 às 18:00");
 });
