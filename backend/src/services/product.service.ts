@@ -9,8 +9,11 @@ export const productInclude = { category: { select: { id: true, name: true } }, 
 export class ProductError extends Error {
     constructor(public status: number, message: string) { super(message); }
 }
-export const getProducts = () => prisma.product.findMany({ include: productInclude });
-export const getPublicProducts = () => prisma.product.findMany({ where: { isPublished: true }, include: productInclude });
+// Ordem estável (criação = id). Sem orderBy o Postgres devolve a ordem física das linhas, que muda a cada
+// UPDATE (carrossel, edição, estoque): a lista do painel e o catálogo "pulavam" de ordem sozinhos.
+const stableOrder = { id: "asc" } as const;
+export const getProducts = () => prisma.product.findMany({ include: productInclude, orderBy: stableOrder });
+export const getPublicProducts = () => prisma.product.findMany({ where: { isPublished: true }, include: productInclude, orderBy: stableOrder });
 // Only explicitly selected slides are public here; catalog publication is independent.
 export const getCarouselProducts = () => prisma.product.findMany({ where: { inCarousel: true }, orderBy: [{ carouselPosition: "asc" }, { id: "asc" }], take: 5, include: productInclude });
 export const getProductById = (id: number) => prisma.product.findUnique({ where: { id }, include: productInclude });
