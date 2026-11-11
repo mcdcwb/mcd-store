@@ -1,8 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
+// As setas da foto só recebem clique com o card em hover. Com rolagem suave, a página continuava se mexendo
+// depois das rolagens automáticas do Playwright; o card saía de baixo do mouse, a foto interceptava o clique e
+// o Playwright rolava de novo, em ciclo. O teste usa movimento reduzido (sem rolagem suave), rolagens
+// instantâneas e leva o mouse até a seta antes de clicar, como o usuário.
 for (const width of [320, 390, 768, 1440]) test(`variant badges, fixed slots and updated stock at ${width}`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 1000 });
+  // Movimento reduzido: sem rolagem suave, as rolagens automáticas do Playwright (screenshot, cliques) não
+  // deixam a página se mexendo depois que a ação termina.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   let settings = { lowStockThreshold: 5, showLowStockBadge: true, showLastUnitBadge: true };
   const product = {
     id: 9500, name: "Variant badge fixture", badge: "EDIÇÃO ESPECIAL", badgeBackgroundColor: "#2457A7", badgeTextColor: "#FFFFFF", price: 30, public: "unissex", category: "camisetas", colors: [
@@ -76,13 +83,20 @@ for (const width of [320, 390, 768, 1440]) test(`variant badges, fixed slots and
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(card.getByRole("button", { name: "A", exact: true })).toBeDisabled();
   await expect(card.locator(".store-badge-automatic")).toHaveCount(0); await verify();
-  await card.evaluate(el => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 120));
+  await card.evaluate(el => window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 120, behavior: "instant" }));
   await card.getByRole("img").hover();
   await card.screenshot({ path: info.outputPath(`manual-only-${width}.png`) });
   await select("B"); await expect(low).toBeVisible();
-  await card.evaluate(el => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 120));
+  await card.evaluate(el => window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 120, behavior: "instant" }));
   await card.getByRole("img").hover();
-  await card.getByRole("button", { name: "Próxima imagem", exact: true }).click();
+  // Como o usuário: o mouse chega à seta (o hover do card a liga; fora dele ela não recebe clique) e só então clica.
+  const next = card.getByRole("button", { name: "Próxima imagem", exact: true }), nextBox = (await next.boundingBox())!;
+  await page.mouse.move(nextBox.x + nextBox.width / 2, nextBox.y + nextBox.height / 2);
+  await expect(next).toHaveCSS("opacity", "1");
+  // Clique no lugar, como o usuário (o click() do Playwright rolaria a página até a seta, com a rolagem
+  // suave do site, tirando o card de baixo do mouse); o efeito é conferido logo em seguida.
+  await page.mouse.down(); await page.mouse.up();
+  await expect(card.getByRole("img")).toHaveAttribute("src", "/variant-dark.svg");
   await card.screenshot({ path: info.outputPath(`dark-badges-${width}.png`) });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -97,7 +111,7 @@ test("ADMIN favorites persist, synchronize, isolate USER, and release pending/co
   const customer = await (await page.request.post("/api/auth/login", { data: { email: process.env.E2E_USER_EMAIL, password: process.env.E2E_USER_PASSWORD } })).json();
   const userHeaders = { Authorization: `Bearer ${customer.accessToken}` };
   const card = (p: Page) => p.locator(".store-product-card").filter({ has: p.getByText(product.name, { exact: true }) });
-  const reveal = async (p: Page) => { await card(p).evaluate(el => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 120)); await card(p).getByRole("img").hover(); };
+  const reveal = async (p: Page) => { await card(p).evaluate(el => window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 120, behavior: "instant" })); await card(p).getByRole("img").hover(); };
   try {
     await page.request.put(`/api/favoritos/${product.id}`, { headers: userHeaders });
     await page.addInitScript(value => localStorage.setItem("mcd-store_auth_v1", JSON.stringify(value)), { accessToken: session.accessToken, expiresAt: session.expiresAt });
@@ -107,12 +121,17 @@ test("ADMIN favorites persist, synchronize, isolate USER, and release pending/co
     let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
     await page.route("**/api/favoritos", async route => { if (route.request().method() !== "GET") await gate; await route.continue(); });
     await button.click(); await expect(button).toHaveAttribute("aria-busy", "true"); await expect(button).toHaveCSS("cursor", "progress");
+    // O cooldown dura 1s de relógio: com o tempo da página congelado, ele não acaba sozinho durante as
+    // verificações (antes dependia de hover + tooltip + cursor caberem em menos de 1s).
+    await page.clock.pauseAt(new Date());
     release(); await expect(button).toHaveAttribute("aria-pressed", "true");
     await button.hover();
     await expect(page.getByRole("tooltip", { name: "Desfavoritar" })).toBeVisible();
     await expect(button).toHaveAttribute("aria-busy", "false"); await expect(button).toHaveCSS("cursor", "not-allowed");
+    await page.clock.runFor(1000); // fim do cooldown (o toast, que também usa temporizadores, dura mais que isso)
     await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Produto adicionado aos favoritos!" })).toHaveCount(1);
     await expect(button).toBeEnabled(); await expect(button).toHaveCSS("cursor", "pointer");
+    await page.clock.resume();
     await page.unroute("**/api/favoritos");
     await page.reload(); await expect(card(page).locator(".store-favorite-bookmark")).toHaveAttribute("aria-pressed", "true");
     await expect(card(page).locator(".store-favorite-bookmark")).toHaveAttribute("aria-pressed", "true");
@@ -128,7 +147,9 @@ test("ADMIN favorites persist, synchronize, isolate USER, and release pending/co
     await expect(button).toBeEnabled(); await expect(button).toHaveCSS("cursor", "pointer"); await expect(button).toHaveAttribute("aria-pressed", "true");
     await page.unroute("**/api/favoritos");
     await reveal(page);
+    await page.clock.pauseAt(new Date()); // mesmo motivo: o cooldown de 1s não pode acabar antes da verificação
     await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); await expect(button).toHaveCSS("cursor", "not-allowed");
+    await page.clock.runFor(1000); await page.clock.resume();
     await expect(card(tab)).toHaveCount(0);
     await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Produto removido dos favoritos!" })).toHaveCount(1);
     await expect(button).toBeEnabled(); await expect(button).toHaveCSS("cursor", "pointer");
