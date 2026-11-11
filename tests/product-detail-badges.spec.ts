@@ -17,7 +17,9 @@ async function setup(page: Page, multicolor = false, related = false) {
   await page.route("**/api/settings/public", route => route.fulfill({ json: settings }));
   await page.route("**/detail-*.svg", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500"><rect width="400" height="500" fill="#ddd"/></svg>' }));
   await page.goto("/?productId=9800");
-  await expect(page.getByRole("heading", { name: product.name })).toBeVisible();
+  // Só o primeiro carregamento do detalhe ganha mais tempo: no fim da suíte completa, o servidor de
+  // desenvolvimento às vezes passa dos 5s padrão. As verificações seguem com o tempo normal.
+  await expect(page.getByRole("heading", { name: product.name })).toBeVisible({ timeout: 15000 });
   return settings;
 }
 
