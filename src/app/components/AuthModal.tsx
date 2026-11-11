@@ -1,7 +1,11 @@
-import { PasswordRequirements } from "./PasswordRequirements";
-import { useEffect, useId, useRef, useState } from "react";
+import { NewPasswordFields } from "./NewPasswordFields";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { validateLogin, validateRegistration } from "../lib/auth";
+import { passwordConfirmationState } from "../lib/password-rules";
+
+const labelClass = "text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+const passwordInputClass = "w-full px-3.5 py-2.5 rounded-xl bg-input-background text-foreground font-medium placeholder:text-muted-foreground/30 autofill:[-webkit-text-fill-color:var(--foreground)] autofill:[-webkit-box-shadow:0_0_0_1000px_var(--input-background)_inset] border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all";
 
 export function AuthModal({
   mode,
@@ -14,14 +18,14 @@ export function AuthModal({
   mode: "login" | "register";
   onClose: () => void;
   onLogin: (email: string, password: string, signal: AbortSignal) => Promise<void>;
-  onRegister: (name: string, email: string, password: string, signal: AbortSignal) => Promise<void>;
+  onRegister: (name: string, email: string, password: string, confirmPassword: string, signal: AbortSignal) => Promise<void>;
   onSwitchMode: () => void;
   sessionError: string | null;
 }) {
-  const passwordRulesId = useId();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,6 +33,9 @@ export function AuthModal({
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => pending.current?.abort(), []);
+  // Cadastro: "Criar conta" só habilita com os requisitos cumpridos e a confirmação igual (mesma regra
+  // da troca de senha na Minha Conta); nome e e-mail seguem validados no envio.
+  const registerReady = passwordConfirmationState(password, confirmPassword).ready;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -47,7 +54,7 @@ export function AuthModal({
     if (pending.current) return;
     const validation = mode === "login"
       ? validateLogin(email, password)
-      : validateRegistration({ name, email, password });
+      : validateRegistration({ name, email, password, confirmPassword });
     if (validation) { setError(validation); return; }
     setError("");
     setSuccess("");
@@ -58,8 +65,8 @@ export function AuthModal({
       if (mode === "login") {
         await onLogin(email, password, controller.signal);
       } else {
-        await onRegister(name, email, password, controller.signal);
-        setPassword("");
+        await onRegister(name, email, password, confirmPassword, controller.signal);
+        setPassword(""); setConfirmPassword("");
         setSuccess("Conta criada com sucesso. Entre com seu e-mail e senha.");
       }
     } catch (error) {
@@ -91,7 +98,8 @@ export function AuthModal({
             event.clientY > bounds.bottom + safeGap(overlay.bottom - bounds.bottom)) onClose();
         }}
       >
-        <div ref={modalRef} className="bg-card w-full max-w-sm rounded-2xl shadow-2xl border border-border overflow-hidden">
+        {/* Altura limitada à janela (menos o p-4 do fundo): o cadastro, mais alto, rola por dentro. */}
+        <div ref={modalRef} className="bg-card w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl shadow-2xl border border-border">
           {/* Header */}
           <div className="relative px-6 pt-6 pb-4">
             <button
@@ -149,24 +157,29 @@ export function AuthModal({
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Senha
-              </label>
-              <input
-                type="password"
-                aria-label="Senha"
-                aria-describedby={mode === "register" ? passwordRulesId : undefined}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                maxLength={128}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === "login" ? "Digite sua senha" : "Crie uma senha"}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-input-background text-foreground font-medium placeholder:text-muted-foreground/30 autofill:[-webkit-text-fill-color:var(--foreground)] autofill:[-webkit-box-shadow:0_0_0_1000px_var(--input-background)_inset] border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 transition-all"
-                required
-              />
-              {mode === "register" && <PasswordRequirements id={passwordRulesId} value={password} className="mt-1.5" />}
-            </div>
+            {mode === "login" ? (
+              <div className="space-y-1">
+                <label className={labelClass}>
+                  Senha
+                </label>
+                <input
+                  type="password"
+                  aria-label="Senha"
+                  autoComplete="current-password"
+                  maxLength={128}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Digite sua senha"
+                  className={passwordInputClass}
+                  required
+                />
+              </div>
+            ) : (
+              // Senha + confirmação + requisitos: o mesmo componente da troca de senha na Minha Conta.
+              <NewPasswordFields variant="stacked" inputClass={passwordInputClass} labelClass={labelClass}
+                password={{ label: "Senha", value: password, onChange: setPassword, placeholder: "Crie uma senha" }}
+                confirmation={{ label: "Confirmar senha", value: confirmPassword, onChange: setConfirmPassword, placeholder: "Repita a senha" }} />
+            )}
 
             {(error || sessionError) && (
               <p role="alert" className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error || sessionError}</p>
@@ -177,7 +190,7 @@ export function AuthModal({
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === "register" && !registerReady)}
               className=" mt-2 w-full py-3 rounded-xl font-semibold text-lg mt-1 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed text-primary border border-primary hover:bg-primary hover:text-primary-foreground"
             >
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
@@ -187,7 +200,9 @@ export function AuthModal({
               {mode === "login" ? "Ainda não tem conta?" : "Já tem conta?"}
               <button
                 type="button"
-                onClick={() => { setError(""); setSuccess(""); onSwitchMode(); }}
+                // Trocar entre "Entrar" e "Criar conta" limpa as senhas no mesmo clique (e não num efeito
+                // posterior), para o outro formulário nunca aparecer, nem por um quadro, com a senha antiga.
+                onClick={() => { setError(""); setSuccess(""); setPassword(""); setConfirmPassword(""); onSwitchMode(); }}
                 className="ml-2 text-primary font-medium underline underline-offset-2 hover:opacity-80"
               >
                 {mode === "login" ? "Cadastre-se" : "Entrar"}

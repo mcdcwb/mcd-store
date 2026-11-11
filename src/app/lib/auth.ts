@@ -7,7 +7,8 @@ export interface Account { id: number; name: string; email: string; role: Accoun
 export const panelAccessOf = (account: Account | null | undefined): PanelAccess =>
   account?.role === "ADMIN" ? "admin" : account?.panelAccess === "read-only" ? "read-only" : "none";
 export interface AuthSession { accessToken: string; expiresAt: number; account: Account; }
-export interface RegisterInput { name: string; email: string; password: string; }
+// confirmPassword: confirmação digitada no cadastro; o backend confere de novo e não a grava.
+export interface RegisterInput { name: string; email: string; password: string; confirmPassword: string; }
 export const AUTH_STORAGE_KEY = "mcd-store_auth_v1";
 
 export class AuthError extends Error {
@@ -35,7 +36,7 @@ export function validateLogin(email: string, password: string): string | null {
   return null;
 }
 
-export function validateRegistration({ name, email, password }: RegisterInput): string | null {
+export function validateRegistration({ name, email, password, confirmPassword }: RegisterInput): string | null {
   if (!name.trim()) return "Informe seu nome completo.";
   if (name.trim().length < 2 || name.trim().length > 100) return "O nome deve ter de 2 a 100 caracteres.";
   const normalizedEmail = email.trim();
@@ -45,6 +46,7 @@ export function validateRegistration({ name, email, password }: RegisterInput): 
   if (password.length > 128) return "A senha deve ter no m\u00e1ximo 128 caracteres.";
   if (!/[A-Z]/.test(password)) return "A senha deve conter pelo menos uma letra mai\u00fascula.";
   if (!/[0-9]/.test(password)) return "A senha deve conter pelo menos um n\u00famero.";
+  if (confirmPassword !== password) return "A confirma\u00e7\u00e3o da senha n\u00e3o confere.";
   return null;
 }
 
@@ -112,7 +114,7 @@ export function createAuthApi(baseUrl = "/api", fetcher: typeof fetch = fetch) {
     if (validation) throw new AuthError("validation", validation);
     const body = await request("/auth/register", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: input.name.trim(), email: input.email.trim().toLowerCase(), password: input.password })
+      body: JSON.stringify({ name: input.name.trim(), email: input.email.trim().toLowerCase(), password: input.password, confirmPassword: input.confirmPassword })
     }, signal) as { account?: unknown };
     if (!body || !isAccount(body.account) || body.account.role !== "USER") throw invalidResponse();
     return body.account;

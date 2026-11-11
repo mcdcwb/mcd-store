@@ -436,6 +436,19 @@ test("a customer can create a PostgreSQL account and then log in", async ({ page
   await page.getByLabel("Nome completo").fill("Nova Cliente");
   await page.getByLabel("E-mail", { exact: true }).fill(registerEmail);
   await page.getByLabel("Senha", { exact: true }).fill("Senha-Segura1");
+  // Requisitos ligados à "Senha", só os 3 itens do cadastro (sem "Diferente da senha atual").
+  const requirements = page.getByRole("list", { name: "Requisitos da senha" });
+  await expect(page.getByLabel("Senha", { exact: true })).toHaveAttribute("aria-describedby", (await requirements.getAttribute("id"))!);
+  await expect(requirements.locator("li")).toHaveCount(3);
+  const create = page.getByRole("button", { name: "Criar conta", exact: true });
+  await expect(create).toBeDisabled();
+  await page.getByLabel("Confirmar senha", { exact: true }).fill("Senha-Segura2");
+  await expect(page.getByText("As senhas não coincidem", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Confirmar senha", { exact: true })).toHaveAttribute("aria-invalid", "true");
+  await expect(create).toBeDisabled();
+  await page.getByLabel("Confirmar senha", { exact: true }).fill("Senha-Segura1");
+  await expect(page.getByText("As senhas não coincidem", { exact: true })).toHaveCount(0);
+  await expect(create).toBeEnabled();
   const registration = page.waitForResponse("**/api/auth/register");
   await submit(page);
   expect((await registration).status()).toBe(201);

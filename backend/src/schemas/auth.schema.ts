@@ -17,3 +17,11 @@ export const registerSchema = z.object({
     email: adminEmailSchema,
     password: passwordSchema
 }).strict();
+
+// Corpo do POST /auth/register: os campos do registerSchema (mesma regra de senha) + a confirmação,
+// que precisa ser igual à senha. A confirmação só é conferida aqui; createUser recebe registerSchema
+// (sem ela), então nunca é gravada.
+export const REGISTER_CONFIRMATION_MESSAGE = "A confirmação da senha não confere.";
+export const registerRequestSchema = registerSchema.extend({
+    confirmPassword: z.string({ error: REGISTER_CONFIRMATION_MESSAGE }).max(128)
+}).strict().refine(data => data.confirmPassword === data.password, { message: REGISTER_CONFIRMATION_MESSAGE, path: ["confirmPassword"] });

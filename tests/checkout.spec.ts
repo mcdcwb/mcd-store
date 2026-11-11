@@ -30,8 +30,8 @@ test.afterAll(async ({ request }) => {
 });
 
 async function customer(page: Page, options: { authenticated?: boolean; address?: boolean; cart?: boolean } = {}) {
-  const email = `checkout-${randomUUID()}@example.test`, password = "test-password";
-  expect((await page.request.post("/api/auth/register", { data: { name: "João da Silva", email, password } })).ok()).toBe(true);
+  const email = `checkout-${randomUUID()}@example.test`, password = "Test-password1";
+  expect((await page.request.post("/api/auth/register", { data: { name: "João da Silva", email, password, confirmPassword: password } })).ok()).toBe(true);
   const session = await (await page.request.post("/api/auth/login", { data: { email, password } })).json();
   const token = session.accessToken as string;
   if (options.address !== false) expect((await page.request.patch("/api/conta", { headers: api(token), data: { email, address } })).ok()).toBe(true);

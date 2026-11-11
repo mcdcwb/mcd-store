@@ -213,8 +213,8 @@ export default function App() {
     }
   }
 
-  async function handleRegister(name: string, email: string, password: string, signal: AbortSignal) {
-    await register({ name, email, password }, signal);
+  async function handleRegister(name: string, email: string, password: string, confirmPassword: string, signal: AbortSignal) {
+    await register({ name, email, password, confirmPassword }, signal);
     setAuthMode("login");
   }
 

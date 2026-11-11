@@ -1,6 +1,6 @@
 import { createUser } from "../services/user.service.js";
 import type { Request, Response, NextFunction } from "express";
-import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
+import { loginSchema, registerRequestSchema, REGISTER_CONFIRMATION_MESSAGE } from "../schemas/auth.schema.js";
 import * as authService from "../services/auth.service.js";
 import { panelReadOnlyForUsers } from "../middlewares/require-admin-or-read-only.js";
 
@@ -29,10 +29,16 @@ export function me(req: Request, res: Response) {
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     res.setHeader("Cache-Control", "no-store");
-    const result = registerSchema.safeParse(req.body);
-    if (!result.success) return res.status(400).json({ error: "Dados inválidos.", errors: result.error.issues });
+    const result = registerRequestSchema.safeParse(req.body);
+    if (!result.success) {
+        // Confirmação ausente ou diferente da senha: mensagem própria; demais erros seguem genéricos.
+        const confirmation = result.error.issues.some(issue => issue.path[0] === "confirmPassword");
+        return res.status(400).json({ error: confirmation ? REGISTER_CONFIRMATION_MESSAGE : "Dados inválidos.", errors: result.error.issues });
+    }
     try {
-        const user = await createUser(result.data);
+        // Só nome, e-mail e senha seguem para o cadastro: a confirmação não é gravada.
+        const { name, email, password } = result.data;
+        const user = await createUser({ name, email, password });
         return res.status(201).json({ account: { ...user, role: "USER" } });
     } catch (error) {
         if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {

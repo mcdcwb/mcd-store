@@ -21,11 +21,18 @@ export const isDifferentFromCurrent = (newPassword: string, currentPassword: str
   newPassword.length > 0 && currentPassword.length > 0 && newPassword !== currentPassword;
 export type PasswordChangeValues = { currentPassword: string; newPassword: string; confirmPassword: string };
 export const emptyPasswordChange: PasswordChangeValues = { currentPassword: "", newPassword: "", confirmPassword: "" };
+// Senha nova + confirmação (cadastro da loja e troca de senha): "As senhas não coincidem" só com a
+// confirmação preenchida; pronta com os requisitos cumpridos e a confirmação igual.
+export const CONFIRMATION_MISMATCH_MESSAGE = "As senhas não coincidem";
+export function passwordConfirmationState(password: string, confirmPassword: string) {
+  const mismatch = confirmPassword.length > 0 && confirmPassword !== password;
+  return { mismatch, ready: passwordMeetsRules(password) && confirmPassword === password };
+}
 // Estado do formulário de troca: o botão de salvar só habilita com a senha atual preenchida, os
 // requisitos cumpridos, a confirmação igual e a nova diferente da atual.
 export function passwordChangeState({ currentPassword, newPassword, confirmPassword }: PasswordChangeValues) {
-  const mismatch = confirmPassword.length > 0 && confirmPassword !== newPassword;
+  const { mismatch, ready: confirmed } = passwordConfirmationState(newPassword, confirmPassword);
   const sameAsCurrent = newPassword.length > 0 && newPassword === currentPassword;
-  const ready = currentPassword.length > 0 && passwordMeetsRules(newPassword) && confirmPassword === newPassword && !sameAsCurrent;
+  const ready = currentPassword.length > 0 && confirmed && !sameAsCurrent;
   return { mismatch, sameAsCurrent, ready };
 }

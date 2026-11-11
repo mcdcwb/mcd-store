@@ -24,15 +24,18 @@ test("login and registration validation match backend boundaries", () => {
   assert.equal(validateLogin(account.email, "abcde"), null);
   assert.equal(validateLogin(account.email, "a".repeat(128)), null);
   assert.ok(validateLogin(account.email, "a".repeat(129)));
-  assert.ok(validateRegistration({ name: "A", email: account.email, password: "Abcde1" }));
-  assert.ok(validateRegistration({ name: "Cliente", email: account.email, password: "Abc1" }));
-  assert.match(validateRegistration({ name: "", email: account.email, password: "Abcde1" }), /nome completo/);
-  assert.match(validateRegistration({ name: "Cliente", email: "invalido", password: "Abcde1" }), /e-mail/);
-  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "" }), /Informe uma senha/);
-  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "abcdef" }), /letra mai/);
-  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "Abcdef" }), /pelo menos um n/);
-  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "Abc1x" }), /pelo menos 6 caracteres/);
-  assert.equal(validateRegistration({ name: "Cliente", email: account.email, password: "Abcde1" }), null);
+  assert.ok(validateRegistration({ name: "A", email: account.email, password: "Abcde1", confirmPassword: "Abcde1" }));
+  assert.ok(validateRegistration({ name: "Cliente", email: account.email, password: "Abc1", confirmPassword: "Abc1" }));
+  assert.match(validateRegistration({ name: "", email: account.email, password: "Abcde1", confirmPassword: "Abcde1" }), /nome completo/);
+  assert.match(validateRegistration({ name: "Cliente", email: "invalido", password: "Abcde1", confirmPassword: "Abcde1" }), /e-mail/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "", confirmPassword: "" }), /Informe uma senha/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "abcdef", confirmPassword: "abcdef" }), /letra mai/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "Abcdef", confirmPassword: "Abcdef" }), /pelo menos um n/);
+  assert.match(validateRegistration({ name: "Cliente", email: account.email, password: "Abc1x", confirmPassword: "Abc1x" }), /pelo menos 6 caracteres/);
+  assert.equal(validateRegistration({ name: "Cliente", email: account.email, password: "Abcde1", confirmPassword: "Abcde1" }), null);
+  // Confirmação diferente da senha: recusada no front com a mesma mensagem do backend.
+  assert.equal(validateRegistration({ name: "Cliente", email: account.email, password: "Abcde1", confirmPassword: "Abcde2" }), "A confirmação da senha não confere.");
+  assert.equal(validateRegistration({ name: "Cliente", email: account.email, password: "Abcde1", confirmPassword: "" }), "A confirmação da senha não confere.");
 });
 
 test("shared login validates the returned role and token with /auth/me", async () => {
@@ -55,8 +58,9 @@ test("registration posts only public account fields and does not create a sessio
     sent = JSON.parse(init.body);
     return json({ account }, 201);
   });
-  assert.deepEqual(await api.register({ name: " Cliente ", email: " TEST@example.test ", password: "Abcde1" }), account);
-  assert.deepEqual(sent, { name: "Cliente", email: account.email, password: "Abcde1" });
+  assert.deepEqual(await api.register({ name: " Cliente ", email: " TEST@example.test ", password: "Abcde1", confirmPassword: "Abcde1" }), account);
+  // A confirmação vai junto para o backend conferir de novo (e não ser gravada).
+  assert.deepEqual(sent, { name: "Cliente", email: account.email, password: "Abcde1", confirmPassword: "Abcde1" });
 });
 
 test("connection refusal never becomes a successful login", async () => {

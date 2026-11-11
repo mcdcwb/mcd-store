@@ -19,18 +19,22 @@ test("public registration persists a user with a hash and rejects privileged fie
     const http = await startTestServer(createApp());
     try {
         for (const extra of [{ role: "ADMIN" }, { active: false }, { password: "tiny" }, { password: "abcdef" }, { password: "Abcdef" }, { password: "Abc1x" }, { name: "" }]) {
-            assert.equal((await http.request("/auth/register", "POST", { name: "Cliente", email, password, ...extra })).status, 400);
+            // A confirmação acompanha a senha testada: a recusa vem da regra, não da confirmação.
+            const tried = "password" in extra ? extra.password : password;
+            assert.equal((await http.request("/auth/register", "POST", { name: "Cliente", email, password, confirmPassword: tried, ...extra })).status, 400);
         }
-        const response = await http.request("/auth/register", "POST", { name: " Cliente ", email: email.toUpperCase(), password });
+        const response = await http.request("/auth/register", "POST", { name: " Cliente ", email: email.toUpperCase(), password, confirmPassword: password });
         assert.equal(response.status, 201);
         const body = await response.json();
         assert.deepEqual(body.account, { id: body.account.id, name: "Cliente", email, role: "USER" });
         assert.equal("accessToken" in body, false);
+        assert.equal(JSON.stringify(body).includes(password), false, "nem a senha nem a confirmação voltam na resposta");
         const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+        assert.equal("confirmPassword" in user, false, "a confirmação não é gravada");
         assert.match(user.passwordHash, /^\$argon2id\$/);
         assert.equal(await verifyPassword(user.passwordHash, password), true);
         assert.equal(await prisma.admin.findUnique({ where: { email } }), null);
-        assert.equal((await http.request("/auth/register", "POST", { name: "Cliente", email, password })).status, 409);
+        assert.equal((await http.request("/auth/register", "POST", { name: "Cliente", email, password, confirmPassword: password })).status, 409);
         await assert.rejects(createAdmin({ email, password }), { code: "P2002" });
     } finally {
         await prisma.user.deleteMany({ where: { email } });
@@ -45,7 +49,7 @@ test("admin email cannot be registered as a customer", async () => {
     const http = await startTestServer(createApp());
     try {
         await createAdmin({ email, password });
-        assert.equal((await http.request("/auth/register", "POST", { name: "Cliente", email: email.toUpperCase(), password })).status, 409);
+        assert.equal((await http.request("/auth/register", "POST", { name: "Cliente", email: email.toUpperCase(), password, confirmPassword: password })).status, 409);
         assert.equal(await prisma.user.findUnique({ where: { email } }), null);
     } finally {
         await prisma.admin.deleteMany({ where: { email } });
