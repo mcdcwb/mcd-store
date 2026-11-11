@@ -16,6 +16,7 @@ const TIMING = {
   toastHoverMs: 1000,     // mouse parado sobre o toast (ele não some com o mouse em cima)
   requirementsMs: 1000,   // mostrando os requisitos de senha cumpridos
   checkoutVisibleMs: 1000, // Checkout na tela logo depois do login
+  beforeAddressMs: 1000,  // a mais, com "Sim, preciso de entrega" marcado, antes de "Cadastrar endereço"
   whatsappHoverMs: 1500,  // aviso "Checkout desativado no modo de demonstração" na tela
   endMs: 1000,
 };
@@ -99,6 +100,7 @@ try {
   // 9. Entrega e "Cadastrar endereço".
   await moveAndClick(page.getByText("Sim, preciso de entrega", { exact: true }));
   await pause();
+  await pause(TIMING.beforeAddressMs);
   await moveAndClick(page.getByRole("link", { name: "Cadastrar endereço" }));
   await page.waitForURL(/\/minha-conta/, { timeout: 15000 });
 
