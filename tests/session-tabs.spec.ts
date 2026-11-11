@@ -101,7 +101,9 @@ test("ADMIN product tab retains identity and Manager; local cart cannot become U
   await expect(tab.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await tab.reload(); await expect(tab.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await logout(page, "admin"); await login(page, "user");
-  await expect(tab.getByRole("heading", { name: "Acesso restrito", exact: true })).toBeVisible();
+  // Cliente: painel em modo leitura (modo demonstração), com a faixa, sem trocar de conta.
+  await expect(tab.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(tab.getByRole("note").filter({ hasText: "Modo demonstração — explore à vontade, as alterações não são salvas." })).toBeVisible();
   await cartCount(page, 0);
   await tab.goto("/"); await settled(tab); await cartCount(tab, 0);
   await expect(card(tab).getByRole("button", { name: "Favoritar", exact: true })).toBeVisible();
@@ -224,7 +226,9 @@ for (const kind of ["user", "admin"] as const) {
       await page.goto("/"); expect((await me).status()).toBe(200);
       await expect(page.getByRole("button", { name: accounts[kind].name, exact: true })).toBeVisible();
       await page.goto("/manager");
-      await expect(page.getByRole("heading", { name: kind === "admin" ? "Dashboard" : "Acesso restrito", exact: true })).toBeVisible();
+      // ADMIN: painel completo; cliente: o mesmo painel em modo leitura, com a faixa do modo demonstração.
+      await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+      await expect(page.getByRole("note").filter({ hasText: "Modo demonstração — explore à vontade, as alterações não são salvas." })).toHaveCount(kind === "admin" ? 0 : 1);
       await page.goto("/");
       await logout(page, kind);
       expect(await page.evaluate(key => localStorage.getItem(key) === null, authKey)).toBe(true);
