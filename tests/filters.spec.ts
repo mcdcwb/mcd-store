@@ -144,9 +144,10 @@ for (const width of [320, 390, 768, 1440]) test(`automatic stock badges coexist 
     });
     expect(contrast).toBeGreaterThanOrEqual(4.5);
   }
-  await expect(card(0).locator(".store-stock-last path")).toHaveCSS("fill", "rgb(180, 35, 50)");
+  // Aviso automático ao lado do preço (não mais SVG sobre a foto): fundo vermelho de "ÚLTIMA PEÇA".
+  await expect(card(0).locator(".store-product-price .store-stock-last")).toHaveCSS("background-color", "rgb(180, 35, 50)");
   await card(0).getByRole("button", { name: "Cor 2", exact: true }).click();
-  await expect(card(0).getByText("ÚLTIMA PEÇA", { exact: true })).toBeVisible();
+  await expect(card(0).getByText(/^ÚLTIMA PEÇA/)).toBeVisible();
   await card(0).getByRole("button", { name: "Próxima imagem", exact: true }).click();
   await expect(card(0).getByRole("img", { name: "Badge case 0", exact: true })).toHaveAttribute("src", "/badge-back.svg");
   await expect(favorite.locator("[data-bookmark-shape]")).toHaveAttribute("fill", "rgba(0, 0, 0, 0.35)");
@@ -156,24 +157,27 @@ for (const width of [320, 390, 768, 1440]) test(`automatic stock badges coexist 
   await page.screenshot({ path: info.outputPath(`stock-badges-${width}.png`), fullPage: true });
   settings = { ...settings, showLastUnitBadge: false };
   await page.evaluate(() => window.dispatchEvent(new Event("store-details-updated")));
-  await expect(card(0).getByText("POUCAS UNIDADES", { exact: true })).toBeVisible();
-  await expect(card(0).getByText("ÚLTIMA PEÇA", { exact: true })).toHaveCount(0);
+  await expect(card(0).getByText(/^POUCAS UNIDADES/)).toBeVisible();
+  await expect(card(0).getByText(/^ÚLTIMA PEÇA/)).toHaveCount(0);
   settings = { ...settings, lowStockThreshold: 3 };
   await page.evaluate(() => window.dispatchEvent(new Event("store-details-updated")));
   await expect(card(5).locator(".store-stock-low")).toHaveCount(0);
   settings = { ...settings, showLowStockBadge: false, showLastUnitBadge: true };
   await page.evaluate(() => window.dispatchEvent(new Event("store-details-updated")));
-  await expect(card(0).getByText("ÚLTIMA PEÇA", { exact: true })).toBeVisible();
+  await expect(card(0).getByText(/^ÚLTIMA PEÇA/)).toBeVisible();
   await expect(page.locator(".store-stock-low")).toHaveCount(0);
   // One badge and no badge must not change the height or add an information row.
   const originalHeight = (await card(0).boundingBox())!.height;
   catalog[0].badge = "";
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(card(0).locator('[aria-label="Badges do produto"] > span')).toHaveCount(1);
+  // Sem selo manual, a área de selos da foto some; o aviso de estoque segue na linha do preço.
+  await expect(card(0).locator('[aria-label="Badges do produto"]')).toHaveCount(0);
+  await expect(card(0).locator(".store-product-price .store-stock-last")).toBeVisible();
   expect((await card(0).boundingBox())!.height).toBeCloseTo(originalHeight, 1);
   settings = { ...settings, showLastUnitBadge: false };
   await page.evaluate(() => window.dispatchEvent(new Event("store-details-updated")));
   await expect(card(0).locator('[aria-label="Badges do produto"]')).toHaveCount(0);
+  await expect(card(0).locator(".store-badge-automatic")).toHaveCount(0);
   expect((await card(0).boundingBox())!.height).toBeCloseTo(originalHeight, 1);
 });
 
@@ -200,7 +204,7 @@ for (const width of [320, 390, 768, 1440]) test(`public dark palette, overlays, 
   const sizes = card.getByRole("button", { name: "P", exact: true });
   await sizes.click(); await expect(sizes).toHaveAttribute("aria-pressed", "true");
   await expect(sizes).toHaveCSS("width", "48px"); await expect(sizes).toHaveCSS("height", "48px");
-  await expect(sizes).toHaveCSS("background-color", "rgb(198, 227, 0)");
+  await expect(sizes).toHaveCSS("background-color", "rgb(244, 236, 3)"); // primária, também com o mouse em cima
   await page.mouse.move(0, 0);
   const primaryColor = await sizes.evaluate(el => { const probe = document.createElement("span"); probe.style.color = "var(--primary)"; el.append(probe); const color = getComputedStyle(probe).color; probe.remove(); return color; });
   await expect(sizes).toHaveCSS("background-color", primaryColor);
@@ -239,7 +243,7 @@ for (const width of [320, 390, 768, 1440]) test(`public dark palette, overlays, 
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(241, 245, 248)");
   await expect(page.locator("main section")).toHaveCSS("background-color", "rgb(253, 254, 254)");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page.getByLabel("E-mail", { exact: true })).toHaveCSS("color", "rgb(0, 0, 0)");
+  await expect(page.getByLabel("E-mail", { exact: true })).toHaveCSS("color", "rgb(24, 50, 70)"); // --foreground do painel (0abd11d)
 });
 
 const product = (id: number, name: string, audience: string, category: string, variants: { value: string; stock: number }[]) => ({
@@ -352,7 +356,7 @@ for (const width of [320, 390, 768, 1440]) test(`filters and sorting omit underl
   const options = width === 1440 ? page.locator("aside section").nth(2) : page.locator("header");
   const all = options.getByRole("button", { name: "Todos", exact: true }).first();
   await expect(all).toHaveAttribute("aria-pressed", "true");
-  await expect(all).toHaveCSS("font-weight", "500");
+  await expect(all).toHaveCSS("font-weight", "200"); // font-extralight desde 58186e9
   await all.hover();
   await expect(all).toHaveCSS("text-decoration-line", "none");
   await all.focus(); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab");
@@ -417,7 +421,7 @@ test("catalog shows loading, retry after errors, and a separate empty state", as
   await page.goto("/");
   await expect(page.getByRole("status")).toHaveText("Carregando produtos...");
   release();
-  await expect(page.getByRole("alert")).toContainText("Não foi possível carregar");
+  await expect(page.getByRole("alert")).toContainText("Estamos preparando a loja");
   await page.route("**/api/produtos{,/admin,/carrossel}", route => route.fulfill({ json: [] }));
   await page.getByRole("button", { name: "Tentar novamente" }).click();
   await expect(page.getByText("Nenhuma peça encontrada", { exact: true })).toBeVisible();
@@ -481,7 +485,7 @@ test("cards cap additions by stock and replace broken images without changing th
 test("malformed catalog data is an API error instead of a fabricated catalog", async ({ page }) => {
   await page.route("**/api/produtos{,/admin,/carrossel}", route => route.fulfill({ json: [{ ...products[0], price: "invalid" }] }));
   await page.goto("/");
-  await expect(page.getByRole("alert")).toContainText("Não foi possível carregar");
+  await expect(page.getByRole("alert")).toContainText("Estamos preparando a loja");
   await expect(page.locator("main").getByText("Camiseta API", { exact: true })).toHaveCount(0);
 });
 
@@ -618,7 +622,11 @@ for (const width of [1440, 390, 320]) test(`sorting header fits and remains stab
   const title = await heading.boundingBox();
   expect(before!.x).toBeGreaterThan(title!.x);
   if (width === 1440) expect(Math.abs(before!.y - title!.y)).toBeLessThan(20);
-  else expect(before!.y).toBeGreaterThan(title!.y + title!.height);
+  else {
+    // Celular: ordenação ao lado do título (o título quebra de linha se precisar), sem sobrepor e dentro da tela.
+    expect(before!.x).toBeGreaterThanOrEqual(title!.x + title!.width - 0.5);
+    expect(before!.x + before!.width).toBeLessThanOrEqual(width);
+  }
   const name = controls.getByRole("button", { name: /Ordenar por nome/ });
   await name.hover();
   await name.click();
@@ -775,8 +783,10 @@ for (const change of ["removed", "sold out"] as const) {
       await expect(page.getByRole("heading", { name: "Produtos", exact: true })).toBeVisible();
     }
     await page.getByRole("link", { name: "Ver loja", exact: true }).click();
+    // Sobrou uma categoria: o filtro some (menos de 2 opções), com a seleção já limpa ("Todos").
     await expect(category.locator("button[aria-pressed]")).toHaveText(["Todos", "Camisetas / Camisas"]);
-    await expect(category.getByRole("button", { name: "Todos", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(category).toBeHidden();
+    await expect(category.getByRole("button", { name: "Todos", exact: true, includeHidden: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Limpar filtros", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Todas as Peças", exact: true })).toBeVisible();
     await expect(page.locator("main").getByText("Camiseta API", { exact: true })).toBeVisible();
