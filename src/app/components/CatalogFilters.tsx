@@ -23,7 +23,7 @@ export function FilterOptions<T extends string>({ options, value, onChange, allV
     {[{ value: allValue, label: "Todos" }, ...options].map(option => (
       <button key={option.value ?? "all"} type="button" aria-pressed={value === option.value}
         onClick={() => onChange(option.value)}
-        className={`store-catalog-control w-full text-left px-3 py-2 rounded-none text-sm  font-extralight tracking-[0.025em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${value === option.value ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"}`}>
+        className={`store-catalog-control w-full text-left px-3 py-2 rounded-none text-sm font-medium tracking-[0.025em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${value === option.value ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"}`}>
         <span className={optionLabelClassName}>{option.label}</span>
       </button>
     ))}

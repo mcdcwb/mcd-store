@@ -356,7 +356,7 @@ for (const width of [320, 390, 768, 1440]) test(`filters and sorting omit underl
   const options = width === 1440 ? page.locator("aside section").nth(2) : page.locator("header");
   const all = options.getByRole("button", { name: "Todos", exact: true }).first();
   await expect(all).toHaveAttribute("aria-pressed", "true");
-  await expect(all).toHaveCSS("font-weight", "200"); // font-extralight desde 58186e9
+  await expect(all).toHaveCSS("font-weight", "500"); // font-medium (o extralight de 58186e9 não era intencional)
   await all.hover();
   await expect(all).toHaveCSS("text-decoration-line", "none");
   await all.focus(); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab");
