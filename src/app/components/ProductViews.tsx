@@ -118,7 +118,8 @@ export function ProductDetailPage({
               </h1>
             </div>
 
-            <div className="text-2xl font-bold text-primary">{formatPrice(product.price)}</div>
+            {/* Aviso de estoque baixo ao lado do preço, como no card do catálogo (some ao trocar para um tamanho com estoque). */}
+            <div className="store-product-price"><div className="text-2xl font-bold text-primary">{formatPrice(product.price)}</div><ProductBadges placement="price" product={baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} /></div>
             <ColorSelector product={product} onSelect={id => {
               const next = selectProductColor(baseProduct, id);
               setSelectedColorId(id); setBadgeColorId(id); setActiveImageIndex(0);

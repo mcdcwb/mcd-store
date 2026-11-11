@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+// Detalhe do produto: aviso automático de estoque ao lado do preço (como no card); selo manual sobre a foto, em tamanho "detail" (1,5×).
 const fixture = (multicolor = false) => ({ id: 9800, name: "Produto detalhe badges", price: 30, public: "unissex", category: "camisetas", isPublished: true,
   badge: "LANÇAMENTO", badgeBackgroundColor: "#2457A7", badgeTextColor: "#FFFFFF",
   colors: [{ id: 9801, colorName: "Preto", colorValue: "#111111", images: ["/detail-light.svg", "/detail-dark.svg"],
@@ -23,7 +24,8 @@ async function setup(page: Page, multicolor = false, related = false) {
 for (const width of [320, 390, 768, 1440]) test(`detail badges respect size stock, toggles and photo frame at ${width}`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 1000 });
   const settings = await setup(page);
-  const content = page.locator(".store-product-detail-content"), photo = page.locator(".store-detail-photo"), auto = photo.locator(".store-badge-automatic"), manual = photo.locator(".store-badge-manual");
+  const content = page.locator(".store-product-detail-content"), photo = page.locator(".store-detail-photo"), manual = photo.locator(".store-badge-manual");
+  const auto = content.locator(".store-product-price .store-badge-automatic");
   await expect(manual).toBeVisible();
   const favorite = photo.locator(".store-favorite-bookmark"), tooltip = photo.locator(".store-favorite-tooltip");
   await favorite.hover(); await expect(tooltip).toHaveText("Adicionar aos Favoritos"); await expect(tooltip).toBeVisible();
@@ -31,22 +33,23 @@ for (const width of [320, 390, 768, 1440]) test(`detail badges respect size stoc
   await favorite.focus(); await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab");
   await expect(favorite).toBeFocused(); await expect(tooltip).toBeVisible();
   await expect(manual.locator("path")).toHaveAttribute("fill", "#2457A7");
+  await expect(photo.locator(".store-badge-automatic")).toHaveCount(0); // o aviso nunca vai para a foto
   await expect(auto).toHaveCount(0);
   await content.getByRole("button", { name: "P", exact: true }).click();
-  await expect(auto).toHaveAccessibleName("ÚLTIMA PEÇA");
-  await expect(auto.locator(".product-tag-label")).toHaveCSS("font-size", width === 320 ? "13.5px" : "14.85px");
-  await expect(auto).toHaveCSS("height", "18px");
+  await expect(auto).toHaveText('ÚLTIMA PEÇA "P"');
+  await expect(auto).toHaveCSS("background-color", "rgb(180, 35, 50)");
+  await expect(auto).toHaveCSS("font-size", "11px");
   settings.showLastUnitBadge = false;
   await page.evaluate(() => window.dispatchEvent(new Event("store-details-updated")));
-  await expect(auto).toHaveAccessibleName("POUCAS UNIDADES");
+  await expect(auto).toHaveText('POUCAS UNIDADES "P"');
   settings.showLowStockBadge = false;
   await page.evaluate(() => window.dispatchEvent(new Event("store-details-updated")));
   await expect(auto).toHaveCount(0);
   settings.showLastUnitBadge = settings.showLowStockBadge = true;
   await page.evaluate(() => window.dispatchEvent(new Event("store-details-updated")));
-  await expect(auto).toHaveAccessibleName("ÚLTIMA PEÇA");
+  await expect(auto).toHaveText('ÚLTIMA PEÇA "P"');
   await content.getByRole("button", { name: "M", exact: true }).click();
-  await expect(auto).toHaveAccessibleName("POUCAS UNIDADES");
+  await expect(auto).toHaveText('POUCAS UNIDADES "M"');
   await content.getByRole("button", { name: "G", exact: true }).click();
   await expect(auto).toHaveCount(0);
   await expect(content.getByRole("button", { name: "GG", exact: true })).toBeDisabled();
@@ -66,52 +69,42 @@ for (const width of [320, 390, 768, 1440]) test(`detail badges respect size stoc
 
 for (const touch of [false, true]) for (const width of [320, 390, 768, 1440]) test.describe(`detail scale ${touch ? "touch" : "desktop"} ${width}`, () => {
   test.use({ viewport: { width, height: 1000 }, hasTouch: touch, isMobile: touch });
-  test("main photo badges retain detail sizing while catalog cards scale on mobile", async ({ page }, info) => {
+  test("detail manual badge is 1.5x the catalog one and the stock notice keeps the detail layout", async ({ page }, info) => {
     await setup(page, false, true);
     const content = page.locator(".store-product-detail-content"), photo = page.locator(".store-detail-photo");
-    const auto = photo.locator(".store-badge-automatic"), manual = photo.locator(".store-badge-manual");
+    const auto = content.locator(".store-product-price .store-badge-automatic"), manual = photo.locator(".store-badge-manual");
     const originalPhoto = await photo.boundingBox();
     const recommended = page.getByRole("region", { name: "VEJA TAMBÉM" }).locator(".store-product-card");
     for (const card of await recommended.all()) await card.getByRole("button", { name: "P", exact: true }).click();
-    const defaults = await recommended.locator(".store-badge-automatic").evaluateAll(elements => elements.map(el => ({
-      width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, font: getComputedStyle(el.querySelector(".product-tag-label")!).fontSize,
-      shape: el.querySelector("path")!.getAttribute("d"), shadow: getComputedStyle(el.querySelector("svg")!).filter,
-    })));
-    expect(defaults.map(b => b.font)).toEqual(width < 768 ? [width === 320 ? "9px" : "10px", width === 320 ? "9px" : "10px"] : ["9.9px", "9.9px"]);
-    for (const badge of defaults) expect(badge.height).toBeCloseTo(width < 768 ? 18 : 12, 2);
+    // Avisos dos cards relacionados: mesmo texto e tipografia do catálogo.
+    await expect(recommended.locator(".store-badge-automatic")).toHaveText(['ÚLTIMA PEÇA "P"', 'POUCAS UNIDADES "P"']);
+    for (const badge of await recommended.locator(".store-badge-automatic").all()) await expect(badge).toHaveCSS("font-size", "11px");
     const defaultManual = (await recommended.first().locator(".store-badge-manual").boundingBox())!;
     expect(defaultManual.width).toBeCloseTo(89.6, 1); expect(defaultManual.height).toBeCloseTo(27.9576, 1);
+    const priceRow = () => content.locator(".store-product-price").evaluate(el => el.getBoundingClientRect().height);
+    const rowBefore = await priceRow();
     await content.getByRole("button", { name: "P", exact: true }).click();
-    const red = (await auto.boundingBox())!;
-    expect(red.width).toBeCloseTo(defaults[0].width / (width < 768 ? 1.5 : 1) * 1.5, 1); expect(red.height).toBeCloseTo(18, 2);
-    await expect(auto).toHaveAttribute("data-badge-size", "detail");
-    await expect(auto.locator("path")).toHaveAttribute("d", defaults[0].shape!);
-    await expect(auto.locator("svg")).toHaveCSS("filter", defaults[0].shadow);
-    await photo.evaluate(el => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 120));
-    await page.mouse.move(0, 0);
-    if (touch) await expect(auto).toHaveCSS("transform", "none");
-    else {
-      await expect.poll(() => auto.evaluate(el => Math.abs(new DOMMatrixReadOnly(getComputedStyle(el).transform).m41 / el.getBoundingClientRect().width + 0.85))).toBeLessThan(0.001);
-      await photo.getByRole("img").hover();
-      await expect(auto).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
-      await expect(auto).toHaveCSS("transition-duration", "0.225s, 0.225s");
-    }
+    await expect(auto).toHaveText('ÚLTIMA PEÇA "P"');
+    expect(await priceRow()).toBeCloseTo(rowBefore, 1); // a linha do aviso já estava reservada
     await content.getByRole("button", { name: "M", exact: true }).click();
-    await expect(auto).toHaveAccessibleName("POUCAS UNIDADES");
-    expect((await auto.boundingBox())!.width).toBeCloseTo(defaults[1].width / (width < 768 ? 1.5 : 1) * 1.5, 1);
-    const metrics = await photo.locator(".product-tag").evaluateAll(elements => elements.map(el => {
+    await expect(auto).toHaveText('POUCAS UNIDADES "M"');
+    expect(await auto.evaluate(el => el.scrollWidth <= el.clientWidth && el.getBoundingClientRect().right <= innerWidth)).toBe(true);
+    await photo.evaluate(el => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 120));
+    if (!touch) await photo.getByRole("img").hover();
+    const metrics = await manual.evaluate(el => {
       const label = el.querySelector<HTMLElement>(".product-tag-label")!, text = label.firstElementChild as HTMLElement;
       const bounds = el.getBoundingClientRect(), frame = el.closest(".store-product-photo")!.getBoundingClientRect();
       return { font: getComputedStyle(label).fontSize, fits: text.scrollWidth <= label.clientWidth && text.scrollHeight <= label.clientHeight,
         textInside: text.getBoundingClientRect().bottom <= bounds.bottom, height: bounds.height, width: bounds.width,
         clip: getComputedStyle(el.parentElement!).clipPath, bottom: bounds.bottom - frame.bottom };
-    }));
-    expect(metrics[0].font).toBe("14.85px"); expect(metrics[1].font).toBe("12px");
-    for (const metric of metrics) { expect(metric.fits).toBe(true); expect(metric.textInside).toBe(true); expect(metric.clip).toBe("inset(-1px 0px -2%)"); }
-    expect(metrics[1].width).toBeCloseTo(defaultManual.width * 1.5, 1);
-    expect(metrics[1].height).toBeCloseTo(defaultManual.height * 1.5, 1);
-    expect(metrics[1].bottom).toBeGreaterThan(0); expect(metrics[1].bottom).toBeLessThan(metrics[1].height * 0.15);
+    });
+    expect(metrics.font).toBe("12px");
+    expect(metrics).toMatchObject({ fits: true, textInside: true, clip: "inset(-1px 0px -2%)" });
+    expect(metrics.width).toBeCloseTo(defaultManual.width * 1.5, 1);
+    expect(metrics.height).toBeCloseTo(defaultManual.height * 1.5, 1);
+    expect(metrics.bottom).toBeGreaterThan(0); expect(metrics.bottom).toBeLessThan(metrics.height * 0.15);
     await expect(manual).toHaveCSS("transform", "none");
+    await expect(manual).toHaveAttribute("data-badge-size", "detail");
     const afterPhoto = (await photo.boundingBox())!;
     expect(afterPhoto.width).toBe(originalPhoto!.width); expect(afterPhoto.height).toBe(originalPhoto!.height);
     await photo.screenshot({ path: info.outputPath(`detail-scale-${width}-${touch ? "touch" : "desktop"}.png`) });
@@ -119,8 +112,8 @@ for (const touch of [false, true]) for (const width of [320, 390, 768, 1440]) te
     await expect(page.locator('[data-badge-size="detail"]')).toHaveCount(0);
     const catalogCard = page.locator(".store-product-card").filter({ has: page.getByText("Produto detalhe badges", { exact: true }) });
     await catalogCard.getByRole("button", { name: "P", exact: true }).click();
-    await expect(catalogCard.locator(".store-badge-automatic")).toHaveCSS("height", width < 768 ? "18px" : "12px");
-    await expect(catalogCard.locator(".store-badge-automatic .product-tag-label")).toHaveCSS("font-size", width < 768 ? width === 320 ? "9px" : "10px" : "9.9px");
+    await expect(catalogCard.locator(".store-badge-automatic")).toHaveText('ÚLTIMA PEÇA "P"');
+    await expect(catalogCard.locator(".store-badge-automatic")).toHaveCSS("font-size", "11px");
     expect((await catalogCard.locator(".store-badge-manual").boundingBox())!.width).toBeCloseTo(89.6, 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
@@ -128,10 +121,10 @@ for (const touch of [false, true]) for (const width of [320, 390, 768, 1440]) te
 
 test("detail multicolor badges need an explicit color and never borrow another variant stock", async ({ page }) => {
   await setup(page, true);
-  const content = page.locator(".store-product-detail-content"), auto = page.locator(".store-detail-photo .store-badge-automatic");
+  const content = page.locator(".store-product-detail-content"), auto = content.locator(".store-product-price .store-badge-automatic");
   await content.getByRole("button", { name: "P", exact: true }).click(); await expect(auto).toHaveCount(0);
-  await content.getByRole("button", { name: "Preto", exact: true }).click(); await expect(auto).toHaveAccessibleName("ÚLTIMA PEÇA");
-  await content.getByRole("button", { name: "Branco", exact: true }).click(); await expect(auto).toHaveAccessibleName("POUCAS UNIDADES");
+  await content.getByRole("button", { name: "Preto", exact: true }).click(); await expect(auto).toHaveText('ÚLTIMA PEÇA "P"');
+  await content.getByRole("button", { name: "Branco", exact: true }).click(); await expect(auto).toHaveText('POUCAS UNIDADES "P"');
   await expect(content.getByRole("button", { name: "M", exact: true })).toBeDisabled();
   await content.getByRole("button", { name: "P", exact: true }).click(); await expect(auto).toHaveCount(0);
   await expect(content.getByRole("button", { name: "Selecione o tamanho", exact: true })).toBeDisabled();
