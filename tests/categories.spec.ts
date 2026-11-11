@@ -200,8 +200,11 @@ test("Header and Aside share dynamic availability and clear invalid IDs through 
     id, name, price: 20, public: "unissex", categoryId: id,
     category: { id, name }, isPublished, colors: [{ id, colorName: "Preto", colorValue: "#111111", images: [], variants: [{ id, value: "P", stock }] }]
   });
+  // O filtro de categoria só aparece com 2+ categorias disponíveis: "Zebra básica" (id 90, sempre com estoque)
+  // fica em todas as fases, por último, para o filtro seguir visível enquanto as outras aparecem e somem.
+  const base = product(90, "Zebra básica", 3);
   let catalog = [product(10, "Acessórios", 1), product(20, "Coleção especial", 0), product(30, "Oculta", 5, false)];
-  await page.route("**/api/produtos", route => route.fulfill({ json: catalog }));
+  await page.route("**/api/produtos", route => route.fulfill({ json: [...catalog, base] }));
   await page.goto("/");
   const aside = page.locator("aside section").nth(2);
   const header = page.locator("header");
@@ -212,19 +215,19 @@ test("Header and Aside share dynamic availability and clear invalid IDs through 
     await header.getByRole("button", { name: "Categorias", exact: true }).click();
   };
   const refresh = async () => { const response = page.waitForResponse(r => r.url().endsWith("/api/produtos")); await page.evaluate(() => window.dispatchEvent(new Event("focus"))); await response; };
-  await check(["Acessórios"]);
+  await check(["Acessórios", "Zebra básica"]);
   await aside.getByRole("button", { name: "Acessórios", exact: true }).click();
   catalog = [product(10, "Acessórios", 0), product(20, "Coleção especial", 1), product(30, "Oculta", 5, false)];
-  await refresh(); await check(["Coleção especial"]);
+  await refresh(); await check(["Coleção especial", "Zebra básica"]);
   await expect(aside.getByRole("button", { name: "Todos", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { name: "Todas as Peças", exact: true })).toBeVisible();
   catalog = [product(10, "Acessórios renomeados", 2), product(20, "Coleção especial", 1)];
-  await refresh(); await check(["Acessórios renomeados", "Coleção especial"]);
+  await refresh(); await check(["Acessórios renomeados", "Coleção especial", "Zebra básica"]);
   await aside.getByRole("button", { name: "Acessórios renomeados", exact: true }).click();
   catalog = [product(10, "Nome atualizado", 2), product(20, "Coleção especial", 1)];
   await refresh();
   await expect(aside.getByRole("button", { name: "Nome atualizado", exact: true })).toHaveAttribute("aria-pressed", "true");
   catalog = [product(10, "Nome atualizado", 2, false), product(20, "Coleção especial", 1)];
-  await refresh(); await check(["Coleção especial"]);
+  await refresh(); await check(["Coleção especial", "Zebra básica"]);
   await expect(aside.getByRole("button", { name: "Todos", exact: true })).toHaveAttribute("aria-pressed", "true");
 });

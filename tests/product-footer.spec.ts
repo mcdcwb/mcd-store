@@ -5,6 +5,14 @@ const products = [101, 100].map(id => ({
   colors: [{ id: id * 10, colorName: "Preto", colorValue: "#111111", images: ["/related-front.svg"], variants: [{ id: id * 10, value: "P", stock: 5 }] }]
 }));
 
+// O filtro de categoria só aparece com 2+ categorias disponíveis: os testes de filtro usam também uma jaqueta.
+// Os nomes aparecem com inicial maiúscula (categoryLabel): "camisetas" vira "Camisetas".
+const jacket = { ...products[0], id: 102, name: "Footer 102", category: "jaquetas",
+  colors: [{ ...products[0].colors[0], id: 1020, variants: [{ id: 1020, value: "P", stock: 5 }] }] };
+async function withTwoCategories(page: Page) {
+  await page.route("**/api/produtos", route => route.fulfill({ json: [...products, jacket] }));
+}
+
 async function setup(page: Page) {
   await page.route("**/api/produtos", route => route.fulfill({ json: products }));
   await page.route("**/api/produtos/carrossel", route => route.fulfill({ json: [] }));
@@ -20,7 +28,7 @@ for (const width of [320, 390, 768, 1440]) test(`store footer appears once after
   await page.goto("/?productId=100");
   await expect(page.getByRole("heading", { name: "Footer 100", exact: true })).toBeVisible();
   await expect(footer).toHaveCount(1);
-  await expect(footer).toContainText("Contato");
+  await expect(footer).toContainText("Sobre esta demonstração"); // rodapé redesenhado em 04/11 (sem o título "Contato")
   if (width < 768) {
     const columns = footer.locator(".max-w-7xl > div.grid > div");
     for (const column of await columns.all()) await expect(column).toHaveCSS("align-items", "center");
@@ -45,6 +53,7 @@ for (const width of [320, 390, 768, 1440]) test(`store footer appears once after
 test("shared header filters work from product details and return to the filtered catalog", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await setup(page);
+  await withTwoCategories(page);
   await page.goto("/?productId=100");
 
   const header = page.locator("header");
@@ -53,9 +62,9 @@ test("shared header filters work from product details and return to the filtered
   await expect(header.getByRole("button", { name: "Categorias" })).toBeVisible();
 
   await header.getByRole("button", { name: "Categorias" }).click();
-  await header.getByRole("button", { name: "camisetas", exact: true }).click();
+  await header.getByRole("button", { name: "Camisetas", exact: true }).click();
   await expect(page).toHaveURL("/");
-  await expect(page.getByRole("heading", { name: "camisetas", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Camisetas", exact: true })).toBeVisible();
   await expect(page.locator(".store-product-card")).toHaveCount(2);
 
   await page.goto("/");
@@ -67,6 +76,7 @@ test("shared header filters work from product details and return to the filtered
 test("mobile category filter remains available from product details while audience is hidden", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setup(page);
+  await withTwoCategories(page);
   await page.goto("/?productId=100");
   const header = page.locator("header");
   await expect(header).toHaveCount(1);
@@ -74,8 +84,8 @@ test("mobile category filter remains available from product details while audien
   const mobileMenu = header.locator("div.md\\:hidden").filter({ has: page.getByText("Categorias", { exact: true }) });
   await expect(mobileMenu.getByText("Categorias", { exact: true })).toBeVisible();
   await expect(mobileMenu.getByText("Público", { exact: true })).toBeHidden();
-  await mobileMenu.getByRole("button", { name: "camisetas", exact: true }).click();
+  await mobileMenu.getByRole("button", { name: "Camisetas", exact: true }).click();
   await expect(page).toHaveURL("/");
-  await expect(page.getByRole("heading", { name: "camisetas", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Camisetas", exact: true })).toBeVisible();
   await expect(page.locator(".store-product-card")).toHaveCount(2);
 });
