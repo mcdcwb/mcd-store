@@ -772,8 +772,8 @@ export default function App() {
       <StoreFooter store={store} />
 
       {/* ── Cart Drawer ────────────────────────────────────────────────────── */}
-      {cartOpen && (
-        <CartDrawer
+      <CartDrawer
+          open={cartOpen}
           busy={shopping.busy || !shopping.ready}
           items={cartItems}
           totalPrice={totalPrice}
@@ -786,7 +786,6 @@ export default function App() {
           onExplore={() => { setCartOpen(false); navigate("/"); window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }}
           onOpenAuth={() => { setCartOpen(false); setAuthOpen(true); }}
         />
-      )}
 
       {!cartOpen && contactUrl && (
         <a
