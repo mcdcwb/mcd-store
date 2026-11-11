@@ -65,6 +65,7 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
   useEffect(() => () => uploadJob.current?.controller.abort(), []);
   const [errors, setErrors] = useState<string[]>([]);
   const colorId = useId();
+  const publishedHelpId = useId();
   const previewRef = useRef<HTMLDivElement>(null);
   const selection = useRef<AbortController | null>(null);
   const [picking, setPicking] = useState(false);
@@ -152,8 +153,11 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
                 return category;
               }} />}
             </div>
-            <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={draft.isPublished} onChange={event => setDraft(previous => ({ ...previous, isPublished: event.target.checked }))} />Publicado na loja
-              <p className="text-xs text-muted-foreground ml-2 mt-0.5">Itens não publicados ainda aparecerão no carrossel.</p></label>
+            {/* Texto de ajuda fora do <label>: o nome da caixa fica só "Publicado na loja"; a ajuda vai por aria-describedby. */}
+            <div className="flex items-center gap-2 text-sm sm:col-span-2">
+              <label className="flex items-center gap-2"><input type="checkbox" aria-describedby={publishedHelpId} checked={draft.isPublished} onChange={event => setDraft(previous => ({ ...previous, isPublished: event.target.checked }))} />Publicado na loja</label>
+              <p id={publishedHelpId} className="text-xs text-muted-foreground ml-2 mt-0.5">Itens não publicados ainda aparecerão no carrossel.</p>
+            </div>
           </div>
         </section>
         <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5">
