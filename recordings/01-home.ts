@@ -1,13 +1,12 @@
 // Vídeo 01-home — entrada da faixa, marquee e catálogo com filtros (~10 s).
 // Rodar: npm run record:01   (front em http://localhost:5173 e backend local no ar)
-import { startRecording, smoothScrollTo, pause, PACE } from "./helpers.ts";
+import { startRecording, smoothScrollTo, pause } from "./helpers.ts";
 
 const TIMING = {
   marqueeMs: 3000,   // marquee passando, com o cursor parado fora da faixa
   endMs: 1500,       // pausa final com a grade enquadrada
-  scrollPxPerSecond: 500, // rolagem mais calma que o padrão neste vídeo
 };
-PACE.scrollPxPerSecond = TIMING.scrollPxPerSecond;
+// Rolagem: padrão do helper (PACE.scrollMinMs/scrollMaxMs), já calma.
 
 const rec = await startRecording("01-home");
 const { page } = rec;

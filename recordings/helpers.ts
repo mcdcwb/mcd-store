@@ -27,8 +27,9 @@ export const PACE = {
   moveFullDistancePx: 1000, // a partir desta distância o movimento dura moveMaxMs
   beforeClickMs: 120,     // parado sobre o alvo antes de clicar
   typeDelayMs: 45,        // atraso entre teclas no typeHuman
-  scrollPxPerSecond: 900, // velocidade da rolagem suave
-  scrollMinMs: 400,       // duração mínima de uma rolagem
+  scrollMinMs: 700,       // rolagem: duração da curta...
+  scrollMaxMs: 1600,      // ...e da longa (cresce com a distância, com easing, como o mouse)
+  scrollFullDistancePx: 1200, // a partir desta distância a rolagem dura scrollMaxMs
 };
 // Abertura dos vídeos que começam na home (open("/") com o corte padrão): parado no topo, com a
 // página pronta (imagens visíveis e fontes carregadas), antes da primeira ação do roteiro.
@@ -346,24 +347,38 @@ export async function typeHuman(locator: Locator, text: string, delayMs = PACE.t
   await locator.pressSequentially(text, { delay: delayMs });
 }
 
-/** Rola a página `px` pixels (negativo = para cima) de forma suave, quadro a quadro. */
+/**
+ * Rola a página `px` pixels (negativo = para cima) dentro do navegador, com requestAnimationFrame
+ * (uma posição nova por quadro) e easeInOutCubic: acelera, fica rápida no meio e desacelera ao chegar.
+ * Duração proporcional à distância (PACE.scrollMinMs → PACE.scrollMaxMs). Só resolve quando a posição
+ * final foi de fato atingida, para a ação seguinte não começar no meio do movimento.
+ */
 export async function smoothScroll(px: number, page: Page = currentPage()) {
-  const duration = Math.max(PACE.scrollMinMs, Math.abs(px) / PACE.scrollPxPerSecond * 1000);
+  const duration = PACE.scrollMinMs + (PACE.scrollMaxMs - PACE.scrollMinMs) * Math.min(1, Math.abs(px) / PACE.scrollFullDistancePx);
   await page.evaluate(({ px, duration }) => new Promise<void>(done => {
+    const root = document.documentElement;
     const from = window.scrollY;
-    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const max = root.scrollHeight - window.innerHeight;
     const to = Math.min(max, Math.max(0, from + px));
-    const start = performance.now();
+    if (Math.abs(to - from) < 1) return done();
+    // O site usa scroll-behavior: smooth no html, que brigaria com a animação: desligado só durante ela.
+    const previous = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
     const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const start = performance.now();
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
-      // "instant" porque o site usa scroll-behavior: smooth no html, que brigaria com a animação.
       window.scrollTo({ top: from + (to - from) * ease(t), behavior: "instant" });
-      if (t < 1) requestAnimationFrame(step); else done();
+      if (t < 1) return requestAnimationFrame(step);
+      // Confirma a chegada (o navegador pode arredondar a posição) antes de liberar o roteiro.
+      const settle = (tries: number) => {
+        if (Math.abs(window.scrollY - to) <= 1 || tries <= 0) { root.style.scrollBehavior = previous; done(); }
+        else { window.scrollTo({ top: to, behavior: "instant" }); requestAnimationFrame(() => settle(tries - 1)); }
+      };
+      settle(10);
     };
     requestAnimationFrame(step);
   }), { px, duration });
-  await sleep(120);
 }
 
 /**
