@@ -11,10 +11,10 @@ dist
 # Windows
 desktop.ini
 
-# Gravação da demo
-demo-recording/node_modules
-demo-recording/videos
-demo-recording/.env
+# Ferramentas locais de gravação de vídeo (ficam só no computador)
+/recordings/
+/demo-recording/
 
-# Vídeos gerados pelos scripts de gravação
-recordings/output/
+# Configurações e instruções do Claude Code (ficam no nível do usuário)
+.claude/
+CLAUDE.md
