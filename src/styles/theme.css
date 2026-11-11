@@ -98,6 +98,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  /* --primary-hover só existe no tema da loja (store-theme.css); fora dela, cai na --primary. */
+  --color-primary-hover: var(--primary-hover, var(--primary));
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
