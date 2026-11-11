@@ -144,7 +144,8 @@ test("real card and details share feedback across size/color changes; keyboard c
   await card.getByRole("button", { name: "Preto", exact: true }).click();
   await expect(button).toBeDisabled();
   await page.evaluate(() => { history.pushState({}, "", "/?productId=9001"); window.dispatchEvent(new PopStateEvent("popstate")); });
-  await page.getByRole("button", { name: "M", exact: true }).click();
+  // No detalhe também existe o filtro de tamanho do catálogo ("M"): o tamanho do produto fica no conteúdo do detalhe.
+  await page.locator(".store-product-detail-content").getByRole("button", { name: "M", exact: true }).click();
   await expect(page.getByRole("button", { name: "✓ Adicionado!", exact: true })).toBeDisabled();
   await page.clock.runFor(1000);
   const detailButton = page.getByRole("button", { name: "Adicionar ao carrinho", exact: true });

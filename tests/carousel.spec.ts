@@ -347,8 +347,10 @@ test("Manager persists carousel selection, combines filters, prioritizes stably 
     const orderSection = page.locator('section[aria-labelledby="carousel-order-title"]');
     await expect(orderSection.locator("li")).toHaveCount(5);
     const firstOrderItem = orderSection.locator("li").first();
-    const firstName = (await firstOrderItem.locator("span").nth(2).textContent())!;
-    const secondName = (await orderSection.locator("li").nth(1).locator("span").nth(2).textContent())!;
+    // Nome lido do próprio botão "Mover … para baixo" (a alça de arrastar virou <button> e o nome deixou de ser o 3º span).
+    const nameOf = async (item: typeof firstOrderItem) => (await item.getByRole("button", { name: /^Mover .+ para baixo$/ }).getAttribute("aria-label"))!.replace(/^Mover | para baixo$/g, "");
+    const firstName = await nameOf(firstOrderItem);
+    const secondName = await nameOf(orderSection.locator("li").nth(1));
     await firstOrderItem.getByRole("button", { name: `Mover ${firstName} para baixo` }).click();
     await expect(orderSection.locator("li").first()).toContainText(secondName);
     await orderSection.getByRole("button", { name: "Salvar ordem" }).click();
