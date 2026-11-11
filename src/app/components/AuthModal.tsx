@@ -191,7 +191,7 @@ export function AuthModal({
             <button
               type="submit"
               disabled={loading || (mode === "register" && !registerReady)}
-              className=" mt-2 w-full py-3 rounded-xl font-semibold text-lg mt-1 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed text-primary border border-primary hover:bg-primary hover:text-primary-foreground"
+              className="mt-2 w-full py-3 rounded-xl font-semibold text-lg mt-1 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60 cursor-pointer text-primary border border-primary hover:bg-primary hover:text-primary-foreground"
             >
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
             </button>

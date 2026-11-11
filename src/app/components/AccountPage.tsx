@@ -186,7 +186,7 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
           </section>
           <button className={buttonClass} type="submit">{saving ? "Salvando..." : "Salvar alterações"}</button>
           {success && <p role="status" className="text-sm text-green-600">{success}</p>}
-          {success && checkoutReturn && <Link to="/checkout" className="inline-flex min-h-11 items-center rounded-lg border border-yellow-400 bg-primary text-primary-foreground px-5 py-2 focus-visible:outline-2 focus-visible:outline-primary">Voltar ao checkout com alterações salvas</Link>}
+          {success && checkoutReturn && <Link to="/checkout" className="inline-flex min-h-11 items-center rounded-sm bg-muted px-4 py-2 focus-visible:outline-2 focus-visible:outline-muted text-primary-hover border border-ring hover:border-primary hover:bg-primary hover:text-primary-foreground">Voltar ao checkout com alterações salvas</Link>}
         </fieldset>
       </form>
       <SectionDivider />
