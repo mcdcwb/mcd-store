@@ -89,6 +89,12 @@ html[data-store-theme="dark"] {
   cursor: pointer;
 }
 
+/* Borda transparente em todos os estados: a borda do estado habilitado (abaixo) não muda mais a
+   altura do botão (e do card) ao escolher o tamanho. */
+[data-store-theme="dark"] button.store-add-to-cart {
+  border: 1px solid transparent;
+}
+
 [data-store-theme="dark"] button.store-add-to-cart.bg-primary:not(:disabled) {
   background-color: #141719 !important;
   color: #FFFFFF !important;
@@ -349,10 +355,37 @@ html[data-store-theme="dark"] {
   min-height: 22px;
 }
 
+/* Aviso de estoque sempre numa linha própria, abaixo do preço, com o espaço reservado (a área existe
+   mesmo vazia): o card nunca muda de altura quando o aviso aparece ou some. Na mesma linha do preço,
+   rótulos longos (ex.: POUCAS UNIDADES "GG") quebravam e faziam o card crescer, em qualquer largura. */
+.store-product-price {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
 .store-stock-slot {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
+  max-width: 100%;
+  min-height: 23px; /* uma linha de aviso: 11px × 1,5 + 4px de padding + 2px de borda = 22,5px */
+}
+
+/* Card estreito (celular a 320px): o aviso mais longo não cabe numa linha. Ele pode quebrar em duas,
+   e as duas linhas ficam reservadas (11px × 1,5 × 2 + 6px = 39px), sem vazar nem mudar a altura. */
+.store-product-card {
+  container: product-card / inline-size;
+}
+
+@container product-card (max-width: 170px) {
+  .store-stock-slot {
+    min-height: 39px;
+  }
+
+  /* Mais específico que a regra base de .store-stock-label (que vem depois e fixa nowrap). */
+  .store-product-card .store-stock-label {
+    white-space: normal;
+  }
 }
 
 .store-stock-label {

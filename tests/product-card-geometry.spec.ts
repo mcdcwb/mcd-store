@@ -66,7 +66,10 @@ for (const width of [320, 390, 768, 1440]) test(`product photos retain original 
   });
   expect(overlay.top).toBeCloseTo(0, 1); expect(overlay.right).toBeCloseTo(8, 1);
   expect(overlay.clipping).toBe("hidden"); expect(overlay.static).toBe(true);
-  await expect(cards.first().locator('[aria-label="Badges do produto"] > span')).toHaveCount(2);
+  // Selo manual sobre a foto; aviso de estoque na linha do preço (fora da foto), sem mudar a altura do card.
+  await expect(cards.first().locator('[aria-label="Badges do produto"] .store-badge-manual')).toHaveCount(1);
+  await expect(cards.first().locator(".store-product-price .store-badge-automatic")).toHaveText('ÚLTIMA PEÇA "P"');
+  await expect(cards.first().locator(".store-product-photo .store-badge-automatic")).toHaveCount(0);
   const effects = await cards.first().evaluate(card => {
     const photo = card.querySelector(".store-product-photo")!, layer = card.querySelector(".store-favorite-layer")!;
     return {

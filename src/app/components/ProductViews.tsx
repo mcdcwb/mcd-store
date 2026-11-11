@@ -315,7 +315,8 @@ export function ProductCard({
       {/* Info */}
       <div className="p-3 flex flex-col gap-2 flex-1 rounded-t-2xl rounded-b-[15px] bg-card">
         <div>
-          <p className="text-[17px] font-medium leading-[1.25] text-foreground line-clamp-2 min-h-[2.5rem] break-words">
+          {/* min-h em "em": reserva exatamente as 2 linhas do nome (17px × 1,25 × 2 = 42,5px); em rem (40px) faltavam 2,5px. */}
+          <p className="text-[17px] font-medium leading-[1.25] text-foreground line-clamp-2 min-h-[2.5em] break-words">
             {product.name}
           </p>
           <div className="store-product-price mt-1"><p className="text-lg font-bold leading-tight text-primary">{formatPrice(product.price)}</p><ProductBadges placement="price" product={badgeProduct ?? baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} /></div>
