@@ -8,6 +8,9 @@
     --font-display: "Oswald", Impact, sans-serif;
 }
 
-html {
-    scroll-behavior: smooth;
+/* Rolagem suave só para quem não pediu movimento reduzido no sistema (acessibilidade). */
+@media (prefers-reduced-motion: no-preference) {
+    html {
+        scroll-behavior: smooth;
+    }
 }
