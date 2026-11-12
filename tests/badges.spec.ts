@@ -149,6 +149,8 @@ for (const touch of [false, true]) for (const width of [320, 390, 768, 1440]) {
       const cards = page.locator(".store-product-card");
       const card = cards.first(), automatic = card.locator(".store-badge-automatic"), other = cards.nth(1).locator(".store-badge-automatic"), manual = card.locator(".store-badge-manual");
       await expect(page.locator(".store-badge-automatic")).toHaveCount(0);
+      // Mede só depois das fontes: a troca da fonte reserva pela DM Sans muda a quebra de linha do card.
+      await expect(cards).toHaveCount(2); await page.evaluate(() => document.fonts.ready);
       const measure = () => card.evaluate(el => {
         const photo = el.querySelector(".store-product-photo")!.getBoundingClientRect(), outer = el.getBoundingClientRect(), manual = el.querySelector(".store-badge-manual")!.getBoundingClientRect();
         return { width: photo.width, height: photo.height, cardHeight: outer.height, manualTop: manual.top - photo.top, manualLeft: manual.left - outer.left };

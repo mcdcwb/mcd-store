@@ -618,6 +618,8 @@ for (const width of [1440, 390, 320]) test(`sorting header fits and remains stab
   const heading = page.getByRole("heading", { name: "Todas as Peças", exact: true });
   const controls = page.getByRole("group", { name: "Ordenar produtos" });
   await controls.scrollIntoViewIfNeeded();
+  // Com a fonte reserva o título cabe numa linha; com a Oswald quebra em duas e a ordenação desce. Mede depois.
+  await expect(heading).toBeVisible(); await page.evaluate(() => document.fonts.ready);
   const before = await controls.boundingBox();
   const title = await heading.boundingBox();
   expect(before!.x).toBeGreaterThan(title!.x);

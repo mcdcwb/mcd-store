@@ -18,6 +18,7 @@ for (const width of [320, 390, 768, 1440]) test(`product photos retain original 
   await page.goto("/");
   const cards = page.locator(".store-product-card");
   await expect(cards).toHaveCount(6);
+  await page.evaluate(() => document.fonts.ready); // medidas só com as fontes finais
   for (const card of await cards.all()) {
     const spacing = await card.evaluate(el => {
       const colors = el.querySelector('[aria-label="Selecionar cor"]')!, sizes = el.querySelector(".store-product-sizes")!;
