@@ -110,6 +110,24 @@ async function mixedCatalog(page: import("@playwright/test").Page) {
   await page.route("**/api/settings/public", route => route.fulfill({ json: { address: null, whatsapp: null, lowStockThreshold: 1, showLowStockBadge: false, showLastUnitBadge: false } }));
 }
 
+// O mesmo seletor de cor no card e na página do produto: 44px no celular (toque), 28px a partir de 640px.
+for (const [width, side] of [[390, 44], [1440, 28]] as const) test(`color swatches match between card and product page at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await mixedCatalog(page);
+  await page.goto("/");
+  const swatch = (scope: import("@playwright/test").Locator) => scope.locator('[aria-label="Selecionar cor"] button').first().evaluate(el => {
+    const r = el.getBoundingClientRect(); return { width: r.width, height: r.height, className: el.className };
+  });
+  const card = page.locator(".store-product-card").filter({ hasText: "Médio" });
+  const fromCard = await swatch(card);
+  await card.locator("a").first().click();
+  await expect(page.locator(".store-product-detail")).toBeVisible();
+  const fromDetail = await swatch(page.locator(".store-product-detail-content"));
+  expect(fromCard).toEqual({ width: side, height: side, className: fromCard.className });
+  expect(fromDetail).toEqual(fromCard);
+  await expect(page.locator('.store-product-detail-content [aria-label="Selecionar cor"] button[aria-pressed="true"]')).toHaveClass(/ring-primary/);
+});
+
 // Produto abre na mesma aba (sem target="_blank"); Ctrl+clique continua abrindo outra aba; voltar retorna à lista.
 test("product links open in the same tab and back returns to the list position", async ({ page, context }) => {
   await page.setViewportSize({ width: 390, height: 700 });

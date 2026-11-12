@@ -18,14 +18,14 @@ export interface FavoriteControls {
   favoriteBusy: (productId: number, colorId: number | null, size: string | null) => boolean;
 }
 
-export function ColorSelector({ product, onSelect, card = false }: { product: Product; onSelect: (id: number) => void; card?: boolean }) {
+// O mesmo seletor no card da home, no "VEJA TAMBÉM" e na página do produto: 44px no celular (área de toque),
+// 28px a partir de 640px; selecionado com o anel amarelo.
+export function ColorSelector({ product, onSelect }: { product: Product; onSelect: (id: number) => void }) {
   return <div className="space-y-2"><p className="text-sm">Cor: <span className="font-medium">{product.color.name}</span></p>
     <div className="flex gap-2 flex-wrap" role="group" aria-label="Selecionar cor">
       {product.colors.map(color => <button key={color.id} type="button" title={color.colorName} aria-label={color.colorName}
         aria-pressed={product.colorId === color.id} onClick={() => onSelect(color.id)}
-        className={card
-          ? `h-11 w-11 shrink-0 rounded-[3px] border border-border transition-[border-color,box-shadow] duration-150 hover:border-primary/60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:h-7 sm:w-7 ${product.colorId === color.id ? "ring-1 ring-primary ring-offset-2 ring-offset-card" : ""}`
-          : `h-7 w-7 border rounded-[3px] shadow-sm ${product.colorId === color.id ? "ring-1 ring-primary ring-offset-2 ring-offset-card border-primary" : "border-border"}`}
+        className={`store-color-swatch h-11 w-11 shrink-0 rounded-[3px] border border-border transition-[border-color,box-shadow] duration-150 hover:border-primary/60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:h-7 sm:w-7 ${product.colorId === color.id ? "ring-1 ring-primary ring-offset-2 ring-offset-card" : ""}`}
         style={{ backgroundColor: color.colorValue }} />)}
     </div>
   </div>;
@@ -322,7 +322,7 @@ export function ProductCard({
           <div className="store-product-price mt-1"><p className="text-lg font-bold leading-tight text-primary">{formatPrice(product.price)}</p><ProductBadges placement="price" product={badgeProduct ?? baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} /></div>
         </div>
 
-        {product.colors.length > 0 && <ColorSelector card product={product} onSelect={id => {
+        {product.colors.length > 0 && <ColorSelector product={product} onSelect={id => {
           const next = selectProductColor(baseProduct, id);
           setSelectedColorId(id); setBadgeColorId(id); setCurrentImageIndex(0);
           if (selectedSize && availableStock(next, selectedSize) <= 0) setSelectedSize(null);
