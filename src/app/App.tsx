@@ -18,7 +18,7 @@ import { Manager } from "./manager/Manager";
 import { fetchCarouselProducts, categoryValue, catalogCategories, catalogSizes, isNumericSize, stockFor, type Product, type Size } from "./lib/products";
 import { useShopping } from "./hooks/useShopping";
 import { useAuth } from "./hooks/useAuth";
-import { notify } from "./lib/notifications";
+import { notify, setCartDrawerOpen } from "./lib/notifications";
 import { useLocation, useNavigate } from "react-router";
 import { AccountMenu } from "./components/AccountMenu";
 import { panelAccessOf } from "./lib/auth";
@@ -86,6 +86,7 @@ export default function App() {
   const [catalogSort, setCatalogSort] = useState<CatalogSort>(null);
   const { user, accessToken, validating, sessionError, login, register, logout, clearError: clearAuthError, invalidate, updateAccount } = useAuth();
   const [cartOpen, setCartOpen] = useState(false);
+  useEffect(() => setCartDrawerOpen(cartOpen), [cartOpen]);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [checkoutIntent, setCheckoutIntent] = useState(false);

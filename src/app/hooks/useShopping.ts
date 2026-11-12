@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAddFeedback } from "./useAddFeedback";
 import { useFavoriteFeedback } from "./useFavoriteFeedback";
-import { notify } from "../lib/notifications";
+import { cartNotify, notify } from "../lib/notifications";
 import { adaptProduct, selectProductColor, stockFor, type Product } from "../lib/products";
 import type { Account } from "../lib/auth";
 import { AUTH_STORAGE_KEY } from "../lib/auth-session";
@@ -218,7 +218,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
           updateGuest(previous ? snapshot.map(i => i === previous ? { ...i, quantity: i.quantity + 1 } : i) : [...snapshot, { product, colorId: product.colorId, size, quantity: 1 }]);
           changed = true;
         }
-        if (changed) notify.positive(`${product.name} — tamanho ${size} foi adicionado ao carrinho.`, onOpenCart ? { label: "Ver no Carrinho", onClick: onOpenCart } : undefined);
+        if (changed) cartNotify.added(`${product.name} — tamanho ${size} foi adicionado ao carrinho.`, onOpenCart ? { label: "Ver no Carrinho", onClick: onOpenCart } : undefined);
         return changed;
       });
       // Serialize server snapshots without discarding another variant's click.
@@ -233,7 +233,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
     if (token) {
       if (!await mutate("/carrinho/item", "DELETE", { productId, colorId, size })) return;
     } else updateGuest(guestItems.filter(i => i.product.id !== productId || i.colorId !== colorId || i.size !== size));
-    notify.removal(`${item.product.name} — tamanho ${size} foi removido do carrinho.`);
+    cartNotify.removal(`${item.product.name} — tamanho ${size} foi removido do carrinho.`);
   }
   async function changeQty(productId: number, size: string, delta: number, colorId: number) {
     if (!ready || locked.current) return;
@@ -244,8 +244,8 @@ export function useShopping(products: Product[], accessToken: string | undefined
     const reportQuantity = (confirmed: number) => {
       if (delta > 0 ? confirmed <= item.quantity : confirmed >= item.quantity) return;
       const message = `${item.product.name} — tamanho ${size}: quantidade ${confirmed}.`;
-      if (confirmed > item.quantity) notify.positive(message);
-      else notify.change(message);
+      if (confirmed > item.quantity) cartNotify.positive(message);
+      else cartNotify.change(message);
     };
     if (token) {
       await mutate("/carrinho", "PATCH", { productId, colorId, size, quantity }, confirmed => {
@@ -265,7 +265,7 @@ export function useShopping(products: Product[], accessToken: string | undefined
     if (token) {
       if (!await mutate("/carrinho", "DELETE")) return false;
     } else updateGuest([]);
-    if (!options.silent) notify.removal("Carrinho esvaziado com sucesso.");
+    if (!options.silent) cartNotify.removal("Carrinho esvaziado com sucesso.");
     return true;
   }
   const isFavorite = (productId: number, colorId: number | null, size: string | null) => favorites.some(f => sameFavorite(f, productId, colorId, size));

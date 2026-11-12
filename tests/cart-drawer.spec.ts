@@ -148,3 +148,35 @@ for (const width of [1920, 390]) test.describe(`cart drawer animation at ${width
     expect(Date.now() - started).toBeLessThan(3000);
   });
 });
+
+// Ao abrir a gaveta, os toasts do carrinho perdem a função e ficavam por cima dela, cobrindo os controles:
+// são fechados (pelo header ou pelo "Ver no Carrinho"). Toasts de outros assuntos continuam na tela.
+test("opening the drawer closes cart toasts and keeps toasts about other subjects", async ({ page }) => {
+  await setup(page, 1920, 0);
+  const toasts = page.locator("[data-sonner-toast]");
+  const added = (name: string) => toasts.filter({ hasText: `${name} — tamanho P foi adicionado ao carrinho.` });
+  const other = toasts.filter({ hasText: "Outro assunto" });
+  const add = async (index: number) => {
+    const card = page.locator(".store-product-card").filter({ has: page.getByText(`Carrinho ${index}`, { exact: true }) });
+    await card.getByRole("button", { name: "P", exact: true }).click();
+    await card.locator(".store-add-to-cart").click();
+    await expect(added(`Carrinho ${index}`)).toHaveCount(1);
+  };
+  const otherToast = () => page.evaluate(async () => { const { notify } = await import("/src/app/lib/notifications.ts"); notify.error("Outro assunto"); });
+
+  await add(0);
+  await otherToast(); await expect(other).toHaveCount(1);
+  await headerButton(page).click();
+  await expect(added("Carrinho 0")).toHaveCount(0);
+  await expect(other).toHaveCount(1);
+  await expectOpened(page);
+  await page.keyboard.press("Escape"); await expectClosed(page);
+  await expect(other).toHaveCount(0); // expira normalmente
+
+  await add(1);
+  await otherToast(); await expect(other).toHaveCount(1);
+  await added("Carrinho 1").getByRole("button", { name: "Ver no Carrinho" }).click();
+  await expect(added("Carrinho 1")).toHaveCount(0);
+  await expect(other).toHaveCount(1);
+  await expectOpened(page);
+});
