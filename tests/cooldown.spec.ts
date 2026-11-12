@@ -164,6 +164,7 @@ test("rapid mobile taps add only one unit", async ({ browser }) => {
     await page.clock.pauseAt(new Date());
     await page.locator("main div.group").filter({ has: page.getByText("Cooldown", { exact: true }) }).getByRole("button", { name: "M", exact: true }).tap();
     const button = page.getByRole("button", { name: "Adicionar ao carrinho", exact: true });
+    await button.scrollIntoViewIfNeeded(); // os toques vão por coordenada: o botão precisa estar na tela
     const bounds = await button.boundingBox();
     for (let i = 0; i < 5; i++) await page.touchscreen.tap(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
     await expect(page.getByRole("button", { name: "✓ Adicionado!", exact: true })).toBeDisabled();

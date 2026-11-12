@@ -110,6 +110,37 @@ async function mixedCatalog(page: import("@playwright/test").Page) {
   await page.route("**/api/settings/public", route => route.fulfill({ json: { address: null, whatsapp: null, lowStockThreshold: 1, showLowStockBadge: false, showLastUnitBadge: false } }));
 }
 
+// Colunas do grid: 2 até 1023px, 3 de 1024px, 4 a partir de 1280px. Todos os cards com a mesma altura:
+// os tamanhos quebram em até 2 linhas (3 abaixo de 360px) dentro do espaço reservado.
+for (const [width, columns] of [[320, 2], [390, 2], [768, 2], [1023, 2], [1024, 3], [1279, 3], [1280, 4], [1920, 4]] as const) test(`grid has ${columns} columns and equal card heights with long names and many sizes at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await mixedCatalog(page);
+  await page.goto("/");
+  const cards = page.locator(".store-product-card");
+  await expect(cards).toHaveCount(mixed.length);
+  await page.evaluate(() => document.fonts.ready);
+  const measured = await page.locator(".store-catalog-grid").evaluate(grid => ({
+    columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+    cards: [...grid.children].map(card => {
+      const sizes = card.querySelector(".store-product-sizes")!, buttons = [...sizes.querySelectorAll("button")].map(b => b.getBoundingClientRect());
+      return { top: Math.round(card.getBoundingClientRect().top), height: card.getBoundingClientRect().height, sizesHeight: sizes.getBoundingClientRect().height, rows: new Set(buttons.map(b => Math.round(b.top))).size,
+        overflow: buttons.some(b => b.bottom > sizes.getBoundingClientRect().bottom + 0.5) };
+    }),
+  }));
+  expect(measured.columns).toBe(columns);
+  for (const card of measured.cards) {
+    // Mesma linha: sempre a mesma altura. Entre linhas também, exceto abaixo de 360px, onde 3 cores (44px cada)
+    // quebram em duas linhas de quadradinhos.
+    const sameRow = measured.cards.find(other => other.top === card.top)!;
+    expect(card.height).toBeCloseTo(sameRow.height, 1);
+    if (width >= 360) expect(card.height).toBeCloseTo(measured.cards[0].height, 1);
+    const rows = width < 360 ? 3 : 2; // abaixo de 360px cabem só 2 botões por linha
+    expect(card.sizesHeight).toBeCloseTo(rows * 48 + (rows - 1) * 4, 1);
+    expect(card.rows).toBeLessThanOrEqual(rows);
+    expect(card.overflow).toBe(false);
+  }
+});
+
 // O mesmo seletor de cor no card e na página do produto: 44px no celular (toque), 28px a partir de 640px.
 for (const [width, side] of [[390, 44], [1440, 28]] as const) test(`color swatches match between card and product page at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });

@@ -676,7 +676,7 @@ export default function App() {
             {/* ── Products section ─────────────────────────────────────────── */}
             <section ref={productsSectionRef} className="flex-1 min-w-0">
               {/* Section header */}
-              <div className="flex flex-wrap items-end justify-between mb-6 gap-4">
+              <div className="flex flex-wrap items-end justify-between mb-3 gap-4">
                 <div className="flex w-full flex-col gap-2">
                   <div className="flex min-w-0 items-center justify-between gap-2">
                     <div className="min-w-0 flex-1 lg:flex-none">

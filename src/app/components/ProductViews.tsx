@@ -329,7 +329,9 @@ export function ProductCard({
         }} />}
 
         {/* Size buttons */}
-        {product.sizes.length > 0 && <div className={`store-product-sizes flex gap-1 flex-wrap ${product.colors.length > 0 ? "mt-2" : ""}`}>
+        {/* Reserva 2 linhas de botões (2 × 48px + gap; 3 linhas abaixo de 360px, onde cabem só 2 por linha): um
+            produto com muitos tamanhos quebra a linha sem deixar o card mais alto que os vizinhos. */}
+        {product.sizes.length > 0 && <div className={`store-product-sizes flex min-h-[100px] max-[359px]:min-h-[152px] flex-wrap content-start gap-1 ${product.colors.length > 0 ? "mt-2" : ""}`}>
           {product.sizes.map((size) => (
             <button
               key={size}

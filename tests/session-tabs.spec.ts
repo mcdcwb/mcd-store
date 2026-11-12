@@ -39,6 +39,15 @@ async function cartCount(page: Page, count: number) {
   await expect(page.getByRole("button", { name: "Remover item", exact: true })).toHaveCount(count);
   await page.getByRole("button", { name: "Fechar carrinho" }).click();
 }
+// Rola o card para abaixo do header fixo e favorita. Repete enquanto o layout ainda se acomoda (um aviso que some
+// acima do card pode levá-lo para baixo do header); uma tentativa que expira não chega a clicar.
+async function favoriteFromCard(page: Page) {
+  await expect(async () => {
+    await card(page).evaluate(element => window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 120));
+    await card(page).getByRole("img").hover();
+    await card(page).getByRole("button", { name: "Favoritar", exact: true }).click({ timeout: 2000 });
+  }).toPass();
+}
 async function openProduct(page: Page) {
   // O produto abre na mesma aba; a outra aba real vem do Ctrl/Cmd+clique no mesmo link.
   const opened = page.context().waitForEvent("page");
@@ -75,7 +84,7 @@ test.beforeEach(async ({ request }) => {
 
 test("USER opens real product tab, refreshes, shares mutations and logs out everywhere", async ({ page, context }) => {
   await page.goto("/"); await login(page, "user"); await add(page);
-  await card(page).evaluate(element => window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 120)); await card(page).getByRole("img").hover(); await card(page).getByRole("button", { name: "Favoritar", exact: true }).click(); await settled(page);
+  await favoriteFromCard(page); await settled(page);
   const tab = await openProduct(page);
   await expect(tab.getByRole("button", { name: "Cliente", exact: true })).toBeVisible();
   await settled(tab); await cartCount(tab, 1);
@@ -116,7 +125,7 @@ test("guest merge remains idempotent across tabs and USER A cannot leak into USE
   await login(page, "user");
   await expect(tab.getByRole("button", { name: "Cliente", exact: true })).toBeVisible();
   await settled(tab); await cartCount(tab, 1);
-  await card(page).evaluate(element => window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 120)); await card(page).getByRole("img").hover(); await card(page).getByRole("button", { name: "Favoritar", exact: true }).click(); await settled(page);
+  await favoriteFromCard(page); await settled(page);
   await logout(tab, "user"); await login(tab, "other");
   await expect(page.getByRole("button", { name: "Nome", exact: true })).toBeVisible();
   await settled(page); await cartCount(page, 0); await cartCount(tab, 0);
@@ -159,7 +168,7 @@ test("failed guest import remains claimed by USER A after account switch", async
 
 test("late cart and favorites responses cannot repopulate USER B with USER A data", async ({ page, context }) => {
   await page.goto("/"); await login(page, "user"); await add(page);
-  await card(page).evaluate(element => window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 120)); await card(page).getByRole("img").hover(); await card(page).getByRole("button", { name: "Favoritar", exact: true }).click(); await settled(page);
+  await favoriteFromCard(page); await settled(page);
   const tab = await context.newPage();
   let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
   let started!: () => void; const loaded = new Promise<void>(resolve => { started = resolve; });
