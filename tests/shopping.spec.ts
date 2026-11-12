@@ -482,11 +482,23 @@ test("favorite cooldown remains shared across catalog and Favorites navigation",
   await card(page).getByRole('button', { name: 'Favoritar', exact: true }).click();
   await page.clock.runFor(0);
   await expect(card(page).getByRole('button', { name: 'Remover dos favoritos' })).toBeDisabled();
+  // O toast de "favoritado" vem da resposta do servidor e o sonner o renderiza num timer, que com o relógio
+  // pausado só dispara num runFor: repete o runFor(0) (não avança o tempo) até ele aparecer. Antes, aparecia
+  // ou não conforme a resposta chegasse antes do runFor(0) e, quando aparecia, nunca expirava e podia cobrir
+  // o link "Favoritos" do menu. Fecha antes de abrir o menu; os 400ms da saída contam no cooldown de 1s
+  // (completado abaixo com 600ms).
+  const favorited = page.locator('[data-store-toast="success"]').filter({ hasText: 'Produto adicionado aos favoritos!' });
+  await expect(async () => {
+    await page.clock.runFor(0);
+    await expect(favorited).toHaveCount(1, { timeout: 250 });
+  }).toPass();
+  await favorited.getByRole('button', { name: 'Fechar notificação', exact: true }).click();
+  await page.clock.runFor(400); await expect(favorited).toHaveCount(0);
   await page.getByRole('button', { name: 'Cliente', exact: true }).click();
   await page.getByRole('link', { name: 'Favoritos', exact: true }).click();
   await expect(card(page).getByRole('button', { name: 'Remover dos favoritos' })).toBeDisabled();
   await expect(card(page).getByRole('button', { name: 'Remover dos favoritos' })).toHaveCSS('opacity', '1');
-  await page.clock.runFor(1000);
+  await page.clock.runFor(600);
   await card(page).getByRole('button', { name: 'Remover dos favoritos' }).click();
   await page.clock.runFor(0);
   await expect(card(page)).toHaveCount(0);
