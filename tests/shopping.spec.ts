@@ -46,15 +46,10 @@ test("hover on the cart action pauses for ten seconds while another toast expire
   await paused.getByRole("button", { name: "Ver no Carrinho" }).hover();
   await expect(paused).toHaveAttribute("data-paused", "true");
   const progress = await paused.getByRole("progressbar").getAttribute("aria-valuenow");
-  // Em duas etapas: quando o outro toast expira, a pilha se reorganiza e o pausado muda de lugar. Com a
-  // máquina carregada, um salto único de 10s podia deixar o ponteiro "fora" dele antes do reposicionamento.
-  await page.clock.runFor(2000);
+  // Um salto único: o outro toast expira, a pilha se reorganiza e o pausado sai de baixo do ponteiro parado.
+  // Sem o mouse se mexer, ele continua pausado.
+  await page.clock.runFor(10000);
   await expect(page.locator('[data-store-toast="error"]')).toHaveCount(0);
-  await expect(paused).toHaveCount(1);
-  await expect(paused).toHaveAttribute("data-paused", "true");
-  await expect(paused.getByRole("progressbar")).toHaveAttribute("aria-valuenow", progress!);
-  await paused.getByRole("button", { name: "Ver no Carrinho" }).hover(); // o mouse segue sobre o toast na nova posição
-  await page.clock.runFor(8000);
   await expect(paused).toHaveCount(1);
   await expect(paused).toHaveAttribute("data-paused", "true");
   await expect(paused.getByRole("progressbar")).toHaveAttribute("aria-valuenow", progress!);

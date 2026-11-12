@@ -37,8 +37,24 @@ export function StoreToast({ id, message, type, action, duration = 2500 }: {
       if (!reasons.delete(reason)) return;
       if (!reasons.size) { setPaused(false); start(); }
     };
-    const enter = (event: PointerEvent) => { if (event.pointerType !== "touch") pause("hover"); };
-    const leave = (event: PointerEvent) => { if (event.pointerType !== "touch") resume("hover"); };
+    // Quando a pilha se reorganiza (outro toast expira), o toast pode sair de baixo do ponteiro parado e o
+    // navegador dispara pointerleave sem o mouse ter se mexido. Por isso o "hover" só termina quando o
+    // ponteiro de fato se move para fora do toast (ou sai da janela).
+    const pointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch" || shell.contains(event.target as Node | null)) return;
+      stopWatching(); resume("hover");
+    };
+    const windowLeave = () => { stopWatching(); resume("hover"); };
+    const stopWatching = () => {
+      document.removeEventListener("pointermove", pointerMove, true);
+      document.documentElement.removeEventListener("pointerleave", windowLeave);
+    };
+    const enter = (event: PointerEvent) => { if (event.pointerType !== "touch") { stopWatching(); pause("hover"); } };
+    const leave = (event: PointerEvent) => {
+      if (event.pointerType === "touch" || !reasons.has("hover")) return;
+      document.addEventListener("pointermove", pointerMove, true);
+      document.documentElement.addEventListener("pointerleave", windowLeave);
+    };
     const touchStart = () => pause("touch"), touchEnd = () => resume("touch");
     const focus = () => pause("focus");
     const blur = (event: FocusEvent) => { if (!shell.contains(event.relatedTarget as Node | null)) resume("focus"); };
@@ -53,7 +69,7 @@ export function StoreToast({ id, message, type, action, duration = 2500 }: {
     setPaused(reasons.size > 0);
     if (!reasons.size) start();
     return () => {
-      clearTimeout(timeout); clearInterval(tick);
+      clearTimeout(timeout); clearInterval(tick); stopWatching();
       shell.removeEventListener("pointerenter", enter); shell.removeEventListener("pointerleave", leave);
       shell.removeEventListener("touchstart", touchStart); shell.removeEventListener("touchend", touchEnd); shell.removeEventListener("touchcancel", touchEnd);
       shell.removeEventListener("focusin", focus); shell.removeEventListener("focusout", blur);
