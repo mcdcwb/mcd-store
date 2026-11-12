@@ -133,7 +133,26 @@ test("customer menu opens only by click, toggles, navigates, restores session an
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await trigger.click();
   // O modo demonstração é um link para o painel em modo leitura (sem trocar de conta).
-  await expect(menu.locator("a, button")).toHaveText(["Minha Conta", "Favoritos", "Meus Pedidos", "Painel administrativo (demo)", "Sair"]);
+  await expect(menu.locator("a, button")).toHaveText(["Minha Conta", "Favoritos", "Meus Pedidos", /^Painel administrativo/, "Sair"]);
+  // Etiqueta "DEMO" só visual; o leitor de tela ouve "Painel administrativo (modo demonstração)".
+  const panelLink = menu.getByRole("link", { name: "Painel administrativo (modo demonstração)", exact: true });
+  await expect(panelLink).toBeVisible();
+  const badge = panelLink.getByText("Demo", { exact: true });
+  await expect(badge).toHaveAttribute("aria-hidden", "true");
+  await expect(badge).toHaveCSS("text-transform", "uppercase");
+  await expect(badge).toHaveCSS("font-size", "10px");
+  await expect(badge).toHaveCSS("font-weight", "700");
+  const colors = await badge.evaluate(el => { const probe = document.createElement("span"); document.body.append(probe);
+    const read = (v: string) => { probe.style.color = v; return getComputedStyle(probe).color; };
+    const theme = [read("var(--primary)"), read("var(--primary-foreground)")]; probe.remove();
+    return { bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(el).color, theme }; });
+  expect([colors.bg, colors.fg]).toEqual(colors.theme);
+  // Hover e foco não mudam tamanho nem posição da etiqueta e do texto.
+  const geometry = () => panelLink.evaluate(el => { const b = el.querySelector('[aria-hidden="true"]')!.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; });
+  const resting = await geometry();
+  await panelLink.hover(); expect(await geometry()).toEqual(resting);
+  await panelLink.focus(); expect(await geometry()).toEqual(resting);
+  await page.screenshot({ path: test.info().outputPath(`account-menu-demo-${page.viewportSize()!.width}.png`) });
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await trigger.click();
   await expect(menu).toHaveCount(0);
@@ -220,13 +239,15 @@ test("modo demonstração: o próprio cliente navega no painel em modo leitura e
   const banner = page.getByRole("note").filter({ hasText: "Modo demonstração — explore à vontade, as alterações não são salvas." });
   await expect(banner).toHaveCount(0); // na loja não há faixa
   await trigger.click();
-  await page.getByRole("navigation", { name: "Menu da conta" }).getByRole("link", { name: "Painel administrativo (demo)" }).click();
+  await page.getByRole("navigation", { name: "Menu da conta" }).getByRole("link", { name: "Painel administrativo (modo demonstração)", exact: true }).click();
   await expect(page).toHaveURL(/\/manager$/);
   await expect(banner).toBeVisible();
   const sidebar = page.getByRole("navigation", { name: "Navegação administrativa" });
   await expect(sidebar.getByRole("link", { name: "Pedidos" })).toBeVisible();
   await expect(sidebar.getByRole("link", { name: "Minha Conta" })).toHaveCount(0);
-  await expect(page.locator("aside").getByText("(demo)", { exact: true })).toBeVisible();
+  await expect(page.locator("aside").getByText("Demo", { exact: true })).toBeVisible();
+  await expect(page.locator("aside").getByText("Demo", { exact: true })).toHaveAttribute("aria-hidden", "true");
+  await page.locator("aside").screenshot({ path: test.info().outputPath("manager-sidebar-demo.png") });
 
   // Salvar no painel: um único toast neutro, nenhum toast de erro.
   await page.goto("/manager/settings");

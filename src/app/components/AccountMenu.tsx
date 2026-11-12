@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { DemoBadge } from "./DemoBadge";
 import { Link, useLocation } from "react-router";
 import { User } from "lucide-react";
 import type { PanelAccess } from "../lib/auth";
@@ -44,7 +45,7 @@ export function AccountMenu({ name, role, panelAccess, onLogout }: {
             {role === "ADMIN" && <Link to="/manager" onClick={() => setOpen(false)} className="block px-4 py-3 hover:bg-muted focus-visible:bg-muted">Painel Administrativo</Link>}
             <Link to="/favoritos" onClick={() => setOpen(false)} className="block px-4 py-3 hover:bg-muted focus-visible:bg-muted">Favoritos</Link>
             {role === "USER" && <Link to="/meus-pedidos" onClick={() => setOpen(false)} className="block px-4 py-3 hover:bg-muted focus-visible:bg-muted">Meus Pedidos</Link>}
-            {panelDemo && <Link to="/manager" onClick={() => setOpen(false)} className="block border-t border-border px-4 py-3 hover:bg-muted focus-visible:bg-muted">Painel administrativo (demo)</Link>}
+            {panelDemo && <Link to="/manager" onClick={() => setOpen(false)} className="flex items-center border-t border-border px-4 py-3 hover:bg-muted focus-visible:bg-muted">Painel administrativo<DemoBadge /></Link>}
             <button type="button" onClick={() => { setOpen(false); onLogout(); }} className="w-full text-left px-4 py-3 hover:bg-muted focus-visible:bg-muted">Sair</button>
           </nav>
         </div>

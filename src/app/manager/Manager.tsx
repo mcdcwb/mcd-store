@@ -1,4 +1,5 @@
 import { StoreDetailsForm } from "./StoreDetailsForm";
+import { DemoBadge } from "../components/DemoBadge";
 import { OrdersPage } from "./OrdersPage";
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CategoryManagement } from "./CategoryManagement";
@@ -113,7 +114,7 @@ function ManagerWorkspace({ user, token, onLogout, onUnauthorized, onChanged, on
         <Link to="/" onClick={event => { if (data.busy || settings.saving || storeSaving || orderSaving) event.preventDefault(); }} className="flex items-center gap-2 px-3 py-3 text-base font-medium text-muted-foreground hover:text-primary"><ArrowUpRight size={20} />Ver loja</Link>
         <button disabled={data.busy || settings.saving || storeSaving || orderSaving} onClick={onLogout} className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground hover:text-destructive disabled:opacity-50"><LogOut size={18} />Sair</button>
       </nav>
-      <div className="mt-5 lg:mt-auto pt-5 border-t border-border text-xs text-muted-foreground break-all"><p className="font-medium text-foreground">{user.name}{demo && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-100">(demo)</span>}</p><p className="mt-1">{user.email}</p></div>
+      <div className="mt-5 lg:mt-auto pt-5 border-t border-border text-xs text-muted-foreground break-all"><p className="font-medium text-foreground">{user.name}{demo && <DemoBadge />}</p><p className="mt-1">{user.email}</p></div>
     </aside>
     <main ref={mainRef} className="min-w-0 w-full max-w-7xl mx-auto p-4 sm:p-8 lg:p-10">
       {path !== "/manager/pedidos" && data.error && <div role="alert" className="mb-5 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4 text-sm"><p>{data.error}</p><button disabled={data.busy} onClick={data.reload} className="underline mt-2">Atualizar lista</button></div>}
