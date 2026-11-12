@@ -110,9 +110,9 @@ async function mixedCatalog(page: import("@playwright/test").Page) {
   await page.route("**/api/settings/public", route => route.fulfill({ json: { address: null, whatsapp: null, lowStockThreshold: 1, showLowStockBadge: false, showLastUnitBadge: false } }));
 }
 
-// Colunas do grid: 2 até 1023px, 3 de 1024px, 4 a partir de 1280px. Todos os cards com a mesma altura:
+// Colunas do grid: 2 até 767px, 3 de 768px, 4 a partir de 1280px. Todos os cards com a mesma altura:
 // os tamanhos quebram em até 2 linhas (3 abaixo de 360px) dentro do espaço reservado.
-for (const [width, columns] of [[320, 2], [390, 2], [768, 2], [1023, 2], [1024, 3], [1279, 3], [1280, 4], [1920, 4]] as const) test(`grid has ${columns} columns and equal card heights with long names and many sizes at ${width}px`, async ({ page }) => {
+for (const [width, columns] of [[320, 2], [390, 2], [767, 2], [768, 3], [1023, 3], [1024, 3], [1279, 3], [1280, 4], [1920, 4]] as const) test(`grid has ${columns} columns and equal card heights with long names and many sizes at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 });
   await mixedCatalog(page);
   await page.goto("/");

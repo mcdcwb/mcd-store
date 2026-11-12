@@ -760,7 +760,7 @@ export default function App() {
                   </button>}
                 </div>
               ) : (
-                <div className="store-catalog-grid grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1 md:gap-2">
+                <div className="store-catalog-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-1 md:gap-2">
                   {sortedProducts.map((product) => (
                     <ProductCard stockSettings={store.stockBadges ?? null} key={product.id} favorite={favoriteControls} product={product} availableStock={availableStock} onAddToCart={addToCart} addState={shopping.addState} />
                   ))}
