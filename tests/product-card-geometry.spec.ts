@@ -90,3 +90,46 @@ for (const width of [320, 390, 768, 1440]) test(`product photos retain original 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`uniform-cards-${width}.png`), fullPage: true });
 });
+
+// Catálogo com nome longo, muitos tamanhos e várias cores lado a lado com um produto "curto".
+const mixed = [
+  { name: "Curto", sizes: ["P"], colors: 1 },
+  { name: "Camiseta Essential Básica de Algodão Orgânico Com Nome Bem Comprido", sizes: ["36", "37", "38", "39", "40"], colors: 3 },
+  { name: "Médio", sizes: ["P", "M", "G", "GG", "XG"], colors: 2 },
+  { name: "Outro", sizes: ["4", "6"], colors: 1 },
+].map((item, index) => ({
+  id: 860 + index, name: item.name, price: 30, public: "unissex", category: "camisetas", badge: null,
+  colors: Array.from({ length: item.colors }, (_, color) => ({
+    id: 860 + index * 10 + color, colorName: `Cor ${color}`, colorValue: ["#111111", "#d9b44a", "#3d6fa5"][color], images: ["/mixed.svg"],
+    variants: item.sizes.map((value, size) => ({ id: 8600 + index * 100 + color * 10 + size, value, stock: 3 })),
+  })),
+}));
+async function mixedCatalog(page: import("@playwright/test").Page) {
+  await page.route("**/mixed.svg", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500"><rect width="100%" height="100%" fill="#d5d2c9"/></svg>' }));
+  await page.route("**/api/produtos{,/carrossel}", route => route.fulfill({ json: mixed }));
+  await page.route("**/api/settings/public", route => route.fulfill({ json: { address: null, whatsapp: null, lowStockThreshold: 1, showLowStockBadge: false, showLastUnitBadge: false } }));
+}
+
+// Produto abre na mesma aba (sem target="_blank"); Ctrl+clique continua abrindo outra aba; voltar retorna à lista.
+test("product links open in the same tab and back returns to the list position", async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await mixedCatalog(page);
+  await page.goto("/");
+  const link = page.locator(".store-product-card").filter({ hasText: "Outro" }).locator("a").first();
+  await expect(link).not.toHaveAttribute("target", /./);
+  await expect(link).not.toHaveAttribute("rel", /./);
+  await link.scrollIntoViewIfNeeded();
+  const listY = await page.evaluate(() => scrollY);
+  expect(listY).toBeGreaterThan(0);
+  const pages = context.pages().length;
+  await link.click();
+  await expect(page).toHaveURL(/productId=863/);
+  await expect(page.locator(".store-product-detail")).toBeVisible();
+  expect(context.pages()).toHaveLength(pages);
+  await page.goBack();
+  await expect(page.locator(".store-product-card")).toHaveCount(mixed.length);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(listY);
+  const [opened] = await Promise.all([context.waitForEvent("page"), link.click({ modifiers: ["Control"] })]);
+  await expect(opened).toHaveURL(/productId=863/);
+  await expect(page).not.toHaveURL(/productId=/);
+});

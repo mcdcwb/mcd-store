@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type { StockBadgeSettings } from "../../../backend/src/lib/stock-badges";
 import type { GetAddState } from "../hooks/useAddFeedback";
@@ -241,10 +242,9 @@ export function ProductCard({
     <div className="store-product-card bg-card border border-border hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group flex flex-col rounded-b-2xl">
       {/* Image */}
       <div className="store-product-photo relative aspect-[4/5] shrink-0 bg-muted rounded-none">
-        <a
-          href={`?productId=${product.id}&colorId=${product.colorId}`}
-          target={onOpenProduct ? undefined : "_blank"}
-          rel="noopener noreferrer"
+        {/* Mesma aba; Ctrl/Cmd+clique e botão do meio continuam abrindo em nova aba (link real). */}
+        <Link
+          to={`/?productId=${product.id}&colorId=${product.colorId}`}
           onClick={onOpenProduct ? event => {
             if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             event.preventDefault(); onOpenProduct(baseProduct);
@@ -257,7 +257,7 @@ export function ProductCard({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
             loading="lazy"
           />
-        </a>
+        </Link>
 
         {hasMultipleImages && (
           <>

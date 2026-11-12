@@ -40,8 +40,9 @@ async function cartCount(page: Page, count: number) {
   await page.getByRole("button", { name: "Fechar carrinho" }).click();
 }
 async function openProduct(page: Page) {
+  // O produto abre na mesma aba; a outra aba real vem do Ctrl/Cmd+clique no mesmo link.
   const opened = page.context().waitForEvent("page");
-  await card(page).locator('a[target="_blank"]').click();
+  await card(page).locator('a[href*="productId="]').click({ modifiers: ["ControlOrMeta"] });
   const tab = await opened;
   await tab.waitForLoadState();
   await expect(tab).toHaveURL(/productId=/);
