@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { badgeShape, manualBadgeViewBox } from "../src/app/components/ProductBadge";
 const originalBookmark = "M21.3,28.3L16,23l-5.3,5.3C10.1,28.9,9,28.5,9,27.6V5c0-0.6,0.4-1,1-1h12c0.6,0,1,0.4,1,1v22.6 C23,28.5,21.9,28.9,21.3,28.3z";
 
@@ -411,21 +411,69 @@ test("mobile filters support arbitrary sizes without overflowing", async ({ page
   }
 });
 
-test("catalog shows loading, retry after errors, and a separate empty state", async ({ page }) => {
-  let release!: () => void;
-  const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/api/produtos{,/admin,/carrossel}", async route => {
-    await gate;
-    await route.fulfill({ status: 503, json: {} });
-  });
+// Espera inicial (servidor gratuito acordando): nada até 1,5s, depois o LatticeLoader; o catálogo tenta de novo
+// sozinho por 60s e só então mostra o erro com "Tentar novamente", que funciona.
+const loader = (page: Page) => page.locator("[data-store-loading]");
+test("catalog waits for the sleeping server, then offers a working retry and a separate empty state", async ({ page }) => {
+  await page.clock.install();
+  await page.route("**/api/produtos{,/admin,/carrossel}", route => route.fulfill({ status: 503, json: {} }));
   await page.goto("/");
-  await expect(page.getByRole("status")).toHaveText("Carregando produtos...");
-  release();
-  await expect(page.getByRole("alert")).toContainText("Estamos preparando a loja");
+  await expect(page.locator("header")).toBeVisible();
+  await expect(loader(page)).toHaveCount(0);
+  await page.clock.runFor(1600);
+  await expect(loader(page)).toBeVisible();
+  await expect(loader(page).getByRole("status")).toContainText("Preparando a loja");
+  await expect(loader(page)).toContainText("O servidor gratuito pode levar até 1 minuto para acordar na primeira visita.");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.clock.fastForward(30000); // salto direto (runFor simularia cada tentativa e o cronômetro)
+  await expect(page.getByRole("alert")).toHaveCount(0); // ainda tentando
+  await page.clock.fastForward(32000);
+  await expect(page.getByRole("alert").filter({ hasText: "A loja não respondeu a tempo" })).toBeVisible();
+  await expect(loader(page)).toHaveCount(0);
   await page.route("**/api/produtos{,/admin,/carrossel}", route => route.fulfill({ json: [] }));
   await page.getByRole("button", { name: "Tentar novamente" }).click();
+  await page.clock.runFor(500);
   await expect(page.getByText("Nenhuma peça encontrada", { exact: true })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("slow first load shows the lattice loader, which fades out without shifting the catalog", async ({ page }) => {
+  await page.route("**/api/produtos{,/admin,/carrossel}", async route => {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    await route.fulfill({ json: products });
+  });
+  await page.goto("/");
+  await expect(loader(page)).toBeVisible({ timeout: 2500 });
+  await expect(loader(page).locator('[aria-label], .ll-run').first()).toBeAttached();
+  const cell = loader(page).locator(".ll-run > span").first();
+  expect(await cell.evaluate(el => getComputedStyle(el).backgroundColor)).toBe("rgb(244, 236, 3)"); // var(--primary)
+  await expect(page.locator(".store-product-card").first()).toBeVisible({ timeout: 10000 });
+  const top = await page.locator(".store-catalog-grid").evaluate(el => el.getBoundingClientRect().top);
+  await expect(loader(page)).toHaveCount(0);
+  expect(await page.locator(".store-catalog-grid").evaluate(el => el.getBoundingClientRect().top)).toBe(top);
+});
+
+test("fast first load never shows the loader", async ({ page }) => {
+  await page.route("**/api/produtos{,/admin,/carrossel}", route => route.fulfill({ json: products }));
+  await page.goto("/");
+  await expect(page.locator(".store-product-card").first()).toBeVisible();
+  await page.waitForTimeout(2000);
+  await expect(loader(page)).toHaveCount(0);
+});
+
+test("reduced motion keeps the lattice cells still and only the timer runs", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.install();
+  await page.route("**/api/produtos{,/admin,/carrossel}", route => route.fulfill({ status: 503, json: {} }));
+  await page.goto("/");
+  await page.clock.runFor(1600);
+  await expect(loader(page)).toBeVisible();
+  expect(await loader(page).locator(".ll-run > span").evaluateAll(cells => cells.every(cell => getComputedStyle(cell).animationName === "none"))).toBe(true);
+  const timer = loader(page).locator(".tabular-nums");
+  const first = await timer.textContent();
+  await page.clock.runFor(1000);
+  await expect(timer).not.toHaveText(first!);
+  await expect(timer).toHaveAttribute("aria-hidden", "true"); // o cronômetro não é anunciado
 });
 
 test("detail and persisted cart respect variant stock and decimal prices", async ({ page }) => {
@@ -483,9 +531,11 @@ test("cards cap additions by stock and replace broken images without changing th
 });
 
 test("malformed catalog data is an API error instead of a fabricated catalog", async ({ page }) => {
+  await page.clock.install();
   await page.route("**/api/produtos{,/admin,/carrossel}", route => route.fulfill({ json: [{ ...products[0], price: "invalid" }] }));
   await page.goto("/");
-  await expect(page.getByRole("alert")).toContainText("Estamos preparando a loja");
+  await page.clock.fastForward(62000);
+  await expect(page.getByRole("alert").filter({ hasText: "A loja não respondeu a tempo" })).toBeVisible();
   await expect(page.locator("main").getByText("Camiseta API", { exact: true })).toHaveCount(0);
 });
 
@@ -658,7 +708,7 @@ for (const width of [1440, 768, 390, 320]) test(`clear filters sits below the he
   const bounds = await Promise.all([clear, name, price].map(control => control.boundingBox()));
   const section = page.locator("main section").filter({ has: controls });
   const header = section.locator(":scope > div").first();
-  const grid = section.locator(":scope > div.grid");
+  const grid = section.locator(".store-catalog-grid");
   const layoutBounds = await Promise.all([header, grid].map(item => item.boundingBox()));
   expect(layoutBounds.every(Boolean)).toBe(true);
   for (const box of bounds) {

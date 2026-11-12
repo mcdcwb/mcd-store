@@ -25,6 +25,7 @@ import { panelAccessOf } from "./lib/auth";
 import { FilterSection, FilterOptions } from "./components/CatalogFilters";
 import { AccountPage } from "./components/AccountPage";
 import { MyOrdersPage } from "./components/MyOrdersPage";
+import { StoreLoading } from "./components/StoreLoading";
 import { ServiceStrip } from "./components/ServiceStrip";
 import {
   ShoppingCart, X, ChevronDown, ChevronLeft, ChevronRight, User, Menu,
@@ -738,9 +739,9 @@ export default function App() {
                 </div>
               </div>
 
-              {productsLoading ? (
-                <div role="status" className="py-24 text-center text-muted-foreground">Carregando produtos...</div>
-              ) : productsError ? (
+              <div className="relative">
+              <StoreLoading loading={productsLoading} />
+              {productsLoading ? null : productsError ? (
                 <div role="alert" className="py-24 text-center text-muted-foreground space-y-3">
                   <p>{productsError}</p>
                   <button onClick={retryProducts} className="text-primary underline underline-offset-2">Tentar novamente</button>
@@ -766,6 +767,7 @@ export default function App() {
                   ))}
                 </div>
               )}
+              </div>
             </section>
           </div>
         </main>
