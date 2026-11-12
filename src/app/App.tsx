@@ -659,7 +659,7 @@ export default function App() {
                       {index > 0 && isNumericSize(size) && !isNumericSize(allSizes[index - 1]) && <hr className="col-span-3 border-border my-2" />}
                       <button aria-pressed={selectedSizes.includes(size)}
                         onClick={() => toggleSize(size)}
-                        className={`store-catalog-control ${sizeButtonClass} text-sm font-medium border transition-colors ${selectedSizes.includes(size) ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:bg-muted"}`}>
+                        className={`store-catalog-control ${sizeButtonClass} text-xs font-medium border transition-colors ${selectedSizes.includes(size) ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:bg-muted"}`}>
                         {size}
                       </button></Fragment>)}
                   </div>
@@ -760,7 +760,7 @@ export default function App() {
                   </button>}
                 </div>
               ) : (
-                <div className="store-catalog-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-1 md:gap-2">
+                <div className="store-catalog-grid grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1 md:gap-2">
                   {sortedProducts.map((product) => (
                     <ProductCard stockSettings={store.stockBadges ?? null} key={product.id} favorite={favoriteControls} product={product} availableStock={availableStock} onAddToCart={addToCart} addState={shopping.addState} />
                   ))}
@@ -776,19 +776,19 @@ export default function App() {
 
       {/* ── Cart Drawer ────────────────────────────────────────────────────── */}
       <CartDrawer
-          open={cartOpen}
-          busy={shopping.busy || !shopping.ready}
-          items={cartItems}
-          totalPrice={totalPrice}
-          user={user}
-          onClose={() => setCartOpen(false)}
-          onRemove={removeFromCart}
-          onChangeQty={changeQty}
-          onClearCart={clearCart}
-          onCheckout={startCheckout}
-          onExplore={() => { setCartOpen(false); navigate("/"); window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }}
-          onOpenAuth={() => { setCartOpen(false); setAuthOpen(true); }}
-        />
+        open={cartOpen}
+        busy={shopping.busy || !shopping.ready}
+        items={cartItems}
+        totalPrice={totalPrice}
+        user={user}
+        onClose={() => setCartOpen(false)}
+        onRemove={removeFromCart}
+        onChangeQty={changeQty}
+        onClearCart={clearCart}
+        onCheckout={startCheckout}
+        onExplore={() => { setCartOpen(false); navigate("/"); window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }}
+        onOpenAuth={() => { setCartOpen(false); setAuthOpen(true); }}
+      />
 
       {!cartOpen && contactUrl && (
         <a

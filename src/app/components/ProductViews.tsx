@@ -66,13 +66,13 @@ export function ProductDetailPage({
     <div className="store-product-detail min-h-screen bg-background text-foreground">
 
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <button
           type="button"
           onClick={onBack}
-          className="mb-6 inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary"
+          className="mb-10 inline-flex items-center text-base font-medium text-muted-foreground hover:text-primary cursor-pointer"
         >
-          <ArrowLeft aria-hidden="true" size={16} className="mr-2" /> Voltar para a loja
+          <ArrowLeft aria-hidden="true" size={20} className="mr-2 text-primary" /> Voltar para a loja
         </button>
 
         <div className="store-product-detail-content grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
