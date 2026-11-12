@@ -74,6 +74,18 @@
 .store-toast:focus-visible, .store-toast button:focus-visible { outline: 2px solid var(--toast-accent); outline-offset: -2px; }
 .store-toast-progress { position: absolute; inset: auto 0 0; height: 3px; background: rgb(255 255 255 / 0.08); }
 .store-toast-progress span { display: block; height: 100%; background: var(--toast-accent); transform-origin: left; }
+/* Loja no desktop (topo à esquerda): a largura nunca alcança a gaveta do carrinho (max-w-md = 448px, à direita),
+   mesmo entre 768px e ~830px, onde os 356px padrão invadiriam a gaveta. */
+[data-sonner-toaster][data-x-position='left'] { --width: min(356px, calc(100vw - 448px - 48px)) !important; } /* o sonner põe --width inline */
+/* Loja no desktop (topo à esquerda): entra e sai deslizando pela esquerda, em vez de descer do topo. A pilha
+   continua vertical (o sonner cuida do --y dos toasts de trás). No celular (embaixo) o sonner já sobe de baixo. */
+[data-sonner-toast][data-x-position='left'][data-y-position='top']:not([data-mounted='true']),
+[data-sonner-toast][data-x-position='left'][data-removed='true'][data-front='true'][data-swipe-out='false'] {
+  --y: translateX(calc(-100% - 32px));
+}
+[data-sonner-toast][data-x-position='left'][data-removed='true'][data-front='false'][data-swipe-out='false'][data-expanded='true'] {
+  --y: translateY(calc(var(--lift) * var(--offset))) translateX(calc(-100% - 32px));
+}
 @media (prefers-reduced-motion: reduce) {
   .store-toast-action, .store-toast-action::before { transition: none; }
   [data-store-theme='dark'] [data-sonner-toast].store-toast-shell { transition: none; animation: none; }

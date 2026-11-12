@@ -57,6 +57,51 @@ test("hover on the cart action pauses for ten seconds while another toast expire
   await page.clock.runFor(400); await expect(paused).toHaveCount(0);
 });
 
+// Desktop: topo à esquerda, logo abaixo do header, entrando pela esquerda; longe da gaveta do carrinho (à direita).
+// Celular: embaixo, centralizado, acima do botão do WhatsApp, entrando de baixo. A posição não muda com a gaveta aberta.
+for (const [width, height] of [[1440, 900], [768, 1024], [767, 900], [390, 844]] as const) test(`store toasts keep a fixed place at ${width}px`, async ({ page }) => {
+  const desktop = width >= 768;
+  await page.setViewportSize({ width, height });
+  await page.route("**/api/settings/public", async route => { const response = await route.fetch(); await route.fulfill({ response, json: { ...(await response.json()), whatsapp: "11999999999" } }); });
+  await page.goto("/");
+  await page.clock.pauseAt(new Date());
+  await page.mouse.move(width / 2, 10);
+  const rect = (locator: import("@playwright/test").Locator) => locator.evaluate(el => { const r = el.getBoundingClientRect(); const m = new DOMMatrix(getComputedStyle(el).transform); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, x: m.m41, y: m.m42 }; });
+  const notification = page.locator("[data-sonner-toast]").first();
+  const show = (message: string) => page.evaluate(async message => { const { notify } = await import("/src/app/lib/notifications.ts"); notify.info(message); }, message);
+  await show("Posição fixa");
+  await page.clock.runFor(0);
+  await expect(notification).toHaveCount(1);
+  // Entrada: no primeiro quadro o toast está deslocado para a esquerda (desktop) ou para baixo (celular).
+  const entering = await rect(notification);
+  if (desktop) { expect(entering.x).toBeLessThan(0); expect(entering.y).toBeCloseTo(0, 0); }
+  else { expect(entering.y).toBeGreaterThan(0); expect(entering.x).toBeCloseTo(0, 0); }
+  await expect.poll(async () => { const { x, y } = await rect(notification); return Math.abs(x) + Math.abs(y); }).toBeLessThan(0.5);
+  const placed = await rect(notification);
+  if (desktop) {
+    const header = await rect(page.locator("header").first());
+    expect(placed.left).toBeCloseTo(24, 0);
+    expect(placed.top).toBeGreaterThanOrEqual(header.bottom);
+    expect(placed.top - header.bottom).toBeLessThanOrEqual(12);
+  } else {
+    const whatsapp = await rect(page.getByRole("link", { name: "Falar conosco pelo WhatsApp" }));
+    expect(placed.bottom).toBeLessThanOrEqual(whatsapp.top);
+    expect(Math.abs((placed.left + placed.right) / 2 - width / 2)).toBeLessThanOrEqual(1);
+  }
+  // Com a gaveta aberta (e a rolagem travada), o toast continua no mesmo lugar e fora da gaveta.
+  await page.getByRole("button", { name: "Abrir carrinho" }).click();
+  await page.clock.runFor(1000);
+  await expect(page.getByRole("heading", { name: "Seu Carrinho" })).toBeVisible();
+  await expect(notification).toHaveCount(1);
+  const withDrawer = await rect(notification);
+  expect(withDrawer.left).toBeCloseTo(placed.left, 0);
+  expect(withDrawer.top).toBeCloseTo(placed.top, 0);
+  if (desktop) {
+    const drawer = await rect(page.locator("div.fixed.inset-y-0.right-0.bg-card"));
+    expect(withDrawer.right).toBeLessThanOrEqual(drawer.left);
+  }
+});
+
 for (const width of [320, 390, 768, 1440]) test(`ButterPop-style store toast timer, semantics and controls at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");
@@ -74,8 +119,9 @@ for (const width of [320, 390, 768, 1440]) test(`ButterPop-style store toast tim
     await expect(notification).toHaveAttribute("data-store-toast", type === "positive" ? "success" : type);
     await expect(notification.locator(".store-toast-icon")).toHaveCSS("color", { positive: "rgb(132, 211, 157)", error: "rgb(255, 150, 158)", warning: "rgb(244, 211, 94)", info: "rgb(146, 200, 255)" }[type]);
     await expect(notification.getByRole("progressbar")).toBeVisible();
-    await expect(page.locator("[data-sonner-toaster]")).toHaveAttribute("data-x-position", "right");
-    await expect(page.locator("[data-sonner-toaster]")).toHaveAttribute("data-y-position", "top");
+    // Posição fixa por dispositivo: topo à esquerda a partir de 768px, embaixo e centralizado no celular.
+    await expect(page.locator("[data-sonner-toaster]")).toHaveAttribute("data-x-position", width >= 768 ? "left" : "center");
+    await expect(page.locator("[data-sonner-toaster]")).toHaveAttribute("data-y-position", width >= 768 ? "top" : "bottom");
     await page.clock.runFor(500);
     await notification.hover();
     await expect(notification).toHaveAttribute("data-paused", "true");
