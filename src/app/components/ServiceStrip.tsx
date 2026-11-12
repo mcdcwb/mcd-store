@@ -36,7 +36,9 @@ const AUTHOR_URL = "https://luan-machado.vercel.app/";
 const MAIN_COPY = 1; // a cópia que fica onde estava o layout original (as outras ficam antes e depois)
 
 const LABEL_CLASS = "text-[9px] font-bold leading-relaxed tracking-[0.08em] sm:text-xs sm:tracking-[0.16em]";
-const LINK_CLASS = "store-strip-link whitespace-nowrap text-[10px] font-semibold tracking-[0.1em] transition-colors hover:text-primary focus-visible:text-primary sm:text-xs sm:tracking-[0.14em]";
+// "por LUAN MACHADO": um único item; só "LUAN MACHADO" é link (com sublinhado), "por" é texto normal.
+const AUTHOR_CLASS = "whitespace-nowrap text-[10px] font-semibold tracking-[0.1em] sm:text-xs sm:tracking-[0.14em]";
+const LINK_CLASS = "store-strip-link relative inline-block transition-colors hover:text-primary focus-visible:text-primary";
 const ICON_CLASS = "h-4 w-4 shrink-0 sm:h-5 sm:w-5";
 
 // Medidas do layout original (px, relativas à faixa), aplicadas a todas as cópias do letreiro.
@@ -48,6 +50,13 @@ type StripLayout = {
   copyWidth: number; // largura de uma cópia: itens + gapA + gapB + emenda (gap da fórmula), arredondada
   copies: number;    // cópias na trilha (cobrem a faixa em qualquer posição do loop)
 };
+
+function Author({ main = true }: { main?: boolean }) {
+  return <>por{" "}<a className={LINK_CLASS} href={AUTHOR_URL} target="_blank" rel="noopener noreferrer" tabIndex={main ? undefined : -1}>
+    LUAN MACHADO
+    <Underline />
+  </a></>;
+}
 
 function Underline() {
   return <span data-strip-underline aria-hidden="true" className="store-strip-underline pointer-events-none absolute inset-x-0 -bottom-[0.2em] h-px bg-current" />;
@@ -81,13 +90,9 @@ function MarqueeCopy({ main, hidden }: { main: boolean; hidden: boolean }) {
           <span aria-hidden="true"><ProjectChars /></span>
         </span>
       </span>
-      <a data-strip-link className={`${LINK_CLASS} ${item}`} style={{ width: "var(--strip-w2)", marginRight: "var(--strip-gap-b)" }}
-        href={AUTHOR_URL} target="_blank" rel="noopener noreferrer" tabIndex={main ? undefined : -1}>
-        <span className="relative inline-block">
-          por LUAN MACHADO
-          <Underline />
-        </span>
-      </a>
+      <span data-strip-link className={`${AUTHOR_CLASS} ${item}`} style={{ width: "var(--strip-w2)", marginRight: "var(--strip-gap-b)" }}>
+        <span><Author main={main} /></span>
+      </span>
       <span className={`${item} justify-end gap-2 sm:gap-4`} style={{ width: "var(--strip-w3)" }}>
         <span data-strip-tag className={`hidden sm:inline ${LABEL_CLASS}`}>E-COMMERCE DEMONSTRATIVO</span>
         <Code2 aria-hidden="true" className={ICON_CLASS} />
@@ -275,12 +280,9 @@ export function ServiceStrip() {
           <span className="sr-only">{PROJECT_LABEL}</span>
           <span aria-hidden="true"><ProjectChars /></span>
         </p>
-        <a className={`${LINK_CLASS} text-right sm:text-center`} href={AUTHOR_URL} target="_blank" rel="noopener noreferrer">
-          <span data-strip-part="link" className="relative inline-block">
-            por LUAN MACHADO
-            <Underline />
-          </span>
-        </a>
+        <p className={`${AUTHOR_CLASS} text-right sm:text-center`}>
+          <span data-strip-part="link" className="inline-block"><Author /></span>
+        </p>
         <p data-strip-part="tag" className={`hidden min-w-0 text-right sm:block ${LABEL_CLASS}`}>E-COMMERCE DEMONSTRATIVO</p>
         <Code2 data-strip-part="icon2" aria-hidden="true" className={ICON_CLASS} />
       </div>
