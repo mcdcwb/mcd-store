@@ -1,4 +1,5 @@
 import { NewPasswordFields } from "./NewPasswordFields";
+import { lockScroll } from "../lib/scrollLock";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { validateLogin, validateRegistration } from "../lib/auth";
@@ -42,12 +43,9 @@ export function AuthModal({
       if (e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+  useEffect(() => lockScroll(), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

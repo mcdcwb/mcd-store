@@ -140,7 +140,7 @@ export default function App() {
     if (isCheckoutPage && !user) navigate("/");
   }
   const shoppingStatus = (shopping.busy || shopping.error || shopping.notice) && (
-    <div className="fixed bottom-4 left-4 right-4 z-[100] mx-auto max-w-xl rounded-lg border bg-card p-3 shadow-lg" role={shopping.error ? "alert" : "status"}>
+    <div className="store-scroll-lock-center fixed bottom-4 left-4 right-4 z-[100] mx-auto max-w-xl rounded-lg border bg-card p-3 shadow-lg" role={shopping.error ? "alert" : "status"}>
       {shopping.busy ? "Sincronizando favoritos e carrinho..." : shopping.error || shopping.notice}
       {shopping.notice && !shopping.busy && !shopping.error && <button className="ml-3 underline" onClick={shopping.dismissNotice}>Fechar aviso</button>}
       {shopping.error && <button className="ml-3 underline" onClick={shopping.retry}>Tentar novamente</button>}
@@ -793,7 +793,7 @@ export default function App() {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Falar conosco pelo WhatsApp"
-          className="fixed bottom-5 right-5 z-50 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-whatsapp text-whatsapp-foreground shadow-lg hover:scale-105 hover:shadow-x1 active:scale-95 transition-all"
+          className="store-scroll-lock-right fixed bottom-5 right-5 z-50 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-whatsapp text-whatsapp-foreground shadow-lg hover:scale-105 hover:shadow-x1 active:scale-95 transition-all"
         >
           <MessageCircle className="w-7 h-7 sm:w-8 sm:h-8" />
         </a>

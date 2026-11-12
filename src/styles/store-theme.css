@@ -601,3 +601,16 @@ html[data-store-theme="dark"] {
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+
+/* Trava de rolagem (lib/scrollLock.ts): sem a barra, a área dos elementos fixos fica mais larga; os presos
+   à direita (e o toaster) recuam a largura da barra, e os centralizados, metade, para nada se mover.
+   O recuo não entra na transição dos botões (transition-all), senão o botão deslizaria. */
+html[data-scroll-locked] :is(.store-scroll-lock-right, [data-sonner-toaster][data-x-position="right"]) {
+  translate: calc(-1 * var(--scroll-lock-gap, 0px)) 0;
+}
+html[data-scroll-locked] .store-scroll-lock-center {
+  translate: calc(-0.5 * var(--scroll-lock-gap, 0px)) 0;
+}
+.store-scroll-lock-right, .store-scroll-lock-center {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform, scale;
+}

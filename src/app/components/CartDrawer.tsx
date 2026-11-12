@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import { lockScroll } from "../lib/scrollLock";
 import { Minus, Plus, ShoppingCart, Trash2, X } from "lucide-react";
 import type { CartItem } from "../hooks/useShopping";
 import { ProductImage } from "./ProductImage";
@@ -110,12 +111,9 @@ export function CartDrawer({
       if (e.key === "Escape" && open) onClose();
     }
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [onClose, open, rendered]);
+  useEffect(() => (rendered ? lockScroll() : undefined), [rendered]);
 
   if (!rendered) return null;
 
