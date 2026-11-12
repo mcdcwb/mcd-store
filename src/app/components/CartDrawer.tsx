@@ -171,7 +171,7 @@ export function CartDrawer({
               </div>
               <button
                 onClick={onExplore}
-                className="mt-2 px-5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
+                className="mt-2 px-5 py-2 border border-primary text-foreground bg-muted hover:bg-primary hover:text-primary-foreground shadow shadow-2xl"
               >
                 Explorar peças
               </button>
