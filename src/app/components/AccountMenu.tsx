@@ -25,16 +25,17 @@ export function AccountMenu({ name, role, panelAccess, onLogout }: {
   }, []);
 
   return (
-    <div ref={root} className="relative"
+    <div ref={root} className="relative min-w-0"
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
       onKeyDown={event => {
         if (event.key === "Escape") { setOpen(false); trigger.current?.focus(); }
       }}>
       <button ref={trigger} type="button" aria-expanded={open} aria-controls={id}
         onClick={() => setOpen(value => !value)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-sm border border-t-gray-400 border-r-gray-400 border-b-gray-300 border-l-gray-300 bg-muted text-muted-foreground cursor-pointer transition-all duration-150 hover:translate-y-px hover:text-primary hover:border-t-gray-600 hover:border-r-gray-600 hover:border-b-gray-500 hover:border-l-gray-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.45)] active:translate-y-0.5 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] focus-visible:outline-2 focus-visible:outline-primary">
+        className="flex min-w-0 max-w-full items-center gap-1.5 px-3 py-2 rounded-sm border border-t-gray-400 border-r-gray-400 border-b-gray-300 border-l-gray-300 bg-muted text-muted-foreground cursor-pointer transition-all duration-150 hover:translate-y-px hover:text-primary hover:border-t-gray-600 hover:border-r-gray-600 hover:border-b-gray-500 hover:border-l-gray-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.45)] active:translate-y-0.5 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] focus-visible:outline-2 focus-visible:outline-primary">
         <User aria-hidden="true" className="w-3.5 h-3.5 shrink-0" />
-        <span className="sr-only sm:not-sr-only text-[15px] font-medium max-w-40 truncate">{name.trim().split(/\s+/)[0]}</span>
+        {/* O corte fica no span interno: sm:not-sr-only volta overflow para visible e anularia o truncate. */}
+        <span className="sr-only sm:not-sr-only min-w-0 text-[15px] font-medium"><span className="block max-w-40 truncate">{name.trim().split(/\s+/)[0]}</span></span>
       </button>
       {open && (
         <div id={id} className={`fixed left-0 right-0 top-16 z-50 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:pt-2 ${panelDemo ? "sm:w-64" : "sm:w-44"}`}>

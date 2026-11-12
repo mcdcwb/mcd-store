@@ -351,7 +351,9 @@ export default function App() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 relative bg-card/95 [&_button]:text-[15px] backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16">
+          {/* No desktop: grid de três colunas (lados iguais), para o menu ficar no centro do header
+              qualquer que seja a largura do grupo conta + carrinho. No celular continua flex. */}
+          <div className="flex items-center justify-between h-16 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
 
             {/* Logo */}
             <button
@@ -362,7 +364,7 @@ export default function App() {
                 window.scrollTo({ top: 0 });
               }}
               aria-label="MCD Store — página inicial"
-              className="flex items-center shrink-0 group"
+              className="flex items-center shrink-0 group md:justify-self-start"
             >
               <img
                 src="/mark-512-transparent.png"
@@ -427,7 +429,7 @@ export default function App() {
 
 
             {/* Right actions */}
-            <div className="flex items-center gap-3 md:gap-2">
+            <div className="flex items-center gap-3 md:gap-2 md:justify-self-end md:min-w-0">
               {user ? <AccountMenu name={user.name} role={user.role} panelAccess={panelAccessOf(user)} onLogout={handleLogout} /> : (<button
                 onClick={() => { setAuthOpen(true); }}
                 className="hidden md:flex items-center gap-1.5 text-[15px] font-medium px-3 py-1.5 rounded-sm border border-t-gray-400 border-r-gray-400 border-b-gray-300 border-l-gray-300 bg-muted text-muted-foreground cursor-pointer transition-all duration-150 hover:translate-y-px hover:text-primary hover:border-t-gray-600 hover:border-r-gray-600 hover:border-b-gray-500 hover:border-l-gray-500 hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.45)] active:translate-y-0.5 active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)] focus-visible:outline-2 focus-visible:outline-primary"
@@ -440,7 +442,7 @@ export default function App() {
               {/* Cart button */}
               <button
                 onClick={() => setCartOpen(true)}
-                className="relative p-2 rounded-sm hover:bg-muted transition-colors hover:text-primary ml-2 cursor-pointer"
+                className="relative shrink-0 p-2 rounded-sm hover:bg-muted transition-colors hover:text-primary ml-2 cursor-pointer"
                 aria-label="Abrir carrinho"
               >
                 <ShoppingCart className="w-5 h-5" />
