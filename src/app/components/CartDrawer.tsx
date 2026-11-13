@@ -156,9 +156,6 @@ export function CartDrawer({
           {!user && (
             <p className="text-xs text-muted-foreground mt-0.5">
               <span>Itens salvos localmente</span>
-              <button onClick={onOpenAuth} className="mx-auto mt-2 block w-fit rounded-lg border border-border px-3 py-2 text-primary transition-colors hover:bg-primary/10">
-                Entre para sincronizar
-              </button>
             </p>
           )}
         </div>

@@ -17,9 +17,9 @@ import { ProductImage } from "./ProductImage";
 
 const demoMode = import.meta.env.VITE_DEMO_MODE === "true";
 
-const action = "min-h-11 rounded-lg px-4 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+const action = "min-h-11 rounded-sm px-4 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 const checkoutEditAction = action + " inline-flex text-primary underline mt-4 pl-0";
-const panel = "rounded-xl border border-border bg-card p-5 sm:p-7 min-w-0";
+const panel = "rounded-none border border-border bg-card p-5 sm:p-7 min-w-0";
 function AddressDisplay({ address }: { address: Address }) {
   return <address className="not-italic text-sm leading-6 break-words">{address.street}, {address.number}
     {address.complement && <><br />{address.complement}</>}<br />{address.neighborhood}<br />{address.city} - {address.state}<br />CEP {formatCep(address.cep)}</address>;
@@ -33,7 +33,7 @@ export function CheckoutPage({ user, token, validating, shopping, store, cartOpe
 }) {
   const navigate = useNavigate();
   return <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14 min-h-[60vh]">
-    <Link to="/" className={action + " inline-flex items-center text-sm text-primary"}><ArrowLeft aria-hidden="true" size={16} className="mr-2" />Voltar para a loja</Link>
+    <Link to="/" className={action + " inline-flex items-center text-base font-medium text-muted-foreground hover:text-primary cursor-pointer ml-[-10px]"}><ArrowLeft aria-hidden="true" size={20} className="mr-2 text-primary" />Voltar para a loja</Link>
     <h1 className="font-serif text-3xl font-bold mt-5 mb-2">Checkout</h1>
     {validating ? <p role="status">Validando sua conta...</p> : user?.role === "ADMIN" ? <section className={panel + " mt-6"}>
       <h2 className="font-semibold">Checkout exclusivo para clientes</h2><p className="mt-2">Para comprar, saia da conta administrativa e entre com uma conta de cliente.</p>

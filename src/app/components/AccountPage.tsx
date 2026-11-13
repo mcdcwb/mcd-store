@@ -17,7 +17,7 @@ export function AccountPage({ user, favorites, onLogin, children, accessToken, o
   useLayoutEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }, [location.pathname, showsAccount]);
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-16 min-h-[60vh]">
-      <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"><ArrowLeft aria-hidden="true" size={16} className="mr-2" />Voltar para a loja</Link>
+      <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"><ArrowLeft aria-hidden="true" size={20} className="mr-2" />Voltar para a loja</Link>
       {checkoutReturn && user?.role === "USER" && <Link to="/checkout" className="ml-4 inline-flex min-h-11 items-center text-sm text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Voltar ao checkout</Link>}
       <section className="mt-8 p-6 sm:p-8 bg-card border border-border rounded-xl">
         {showsAccount ? (

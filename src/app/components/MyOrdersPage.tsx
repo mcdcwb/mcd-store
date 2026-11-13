@@ -42,7 +42,7 @@ export function MyOrdersPage({ token, onLogin }: { token?: string; onLogin: () =
     return () => controller.abort();
   }, [token, revision]);
   return <main className="max-w-5xl mx-auto px-4 sm:px-6 py-12 min-h-[60vh]">
-    <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"><ArrowLeft aria-hidden="true" size={16} className="mr-2" />Voltar para a loja</Link>
+    <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"><ArrowLeft aria-hidden="true" size={20} className="mr-2" />Voltar para a loja</Link>
     <h1 className="mt-6 font-serif text-3xl font-bold">Meus Pedidos</h1>
     {!token ? <section className="mt-6 rounded-xl border border-border bg-card p-6"><p>Entre com sua conta de cliente para consultar seus pedidos.</p><button onClick={onLogin} className="mt-4 rounded-lg bg-primary px-5 py-2 text-primary-foreground">Entrar</button></section>
       : loading ? <p role="status" className="mt-6">Carregando seus pedidos...</p>
