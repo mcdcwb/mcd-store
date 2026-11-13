@@ -213,11 +213,12 @@ function CheckoutReviewPage({ user, token, shopping, store, cartOpen, onOpenCart
         <div className="flex justify-center">
           <button onClick={() => { attempt.current = null; setRevision(value => value + 1); store.reload(); setOpened(false); }} disabled={sending || loading} className={action + " text-primary underline text-sm mt-3"}>Conferir dados novamente</button>
         </div>
+        {/* O aviso no hover/foco só existe no modo demonstração (o mesmo demoMode que bloqueia canSend). */}
         <div className="group/checkout mt-4">
-          <button onClick={finalize} disabled={!canSend} aria-busy={sending} aria-label={sending ? "Validando pedido..." : "Finalizar compra pelo WhatsApp"} className={action + " group w-full bg-primary text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex gap-2 items-center justify-center group-hover/checkout:bg-destructive group-hover/checkout:text-destructive-foreground focus-visible:bg-destructive focus-visible:text-destructive-foreground"}>
+          <button onClick={finalize} disabled={!canSend} aria-busy={sending} aria-label={sending ? "Validando pedido..." : "Finalizar compra pelo WhatsApp"} className={action + " group w-full bg-primary text-primary-foreground font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex gap-2 items-center justify-center" + (demoMode ? " group-hover/checkout:bg-destructive group-hover/checkout:text-destructive-foreground focus-visible:bg-destructive focus-visible:text-destructive-foreground" : "")}>
             <MessageCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
-            <span className="min-w-0 text-center break-words group-hover/checkout:hidden group-focus-visible:hidden" aria-hidden="true">{sending ? "Validando pedido..." : "Finalizar compra pelo WhatsApp"}</span>
-            <span className="hidden min-w-0 text-center break-words group-hover/checkout:inline group-focus-visible:inline" aria-hidden="true">Checkout desativado no modo de demonstração</span>
+            <span className={"min-w-0 text-center break-words" + (demoMode ? " group-hover/checkout:hidden group-focus-visible:hidden" : "")} aria-hidden="true">{sending ? "Validando pedido..." : "Finalizar compra pelo WhatsApp"}</span>
+            {demoMode && <span className="hidden min-w-0 text-center break-words group-hover/checkout:inline group-focus-visible:inline" aria-hidden="true">Checkout desativado no modo de demonstração</span>}
           </button>
         </div>
         {opened && <p role="status" className="text-sm mt-4">WhatsApp aberto em uma nova aba. Volte para esta aba para continuar na loja e acompanhar seu pedido.</p>}
