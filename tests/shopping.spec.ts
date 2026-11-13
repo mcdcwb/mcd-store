@@ -23,6 +23,8 @@ test("toast outer border pauses the real deadline for ten seconds and resumes re
   await page.clock.runFor(0);
   const shell = page.locator(".store-toast-shell"), notification = shell.locator("[data-store-toast]");
   await expect(notification).toHaveCount(1); await page.clock.runFor(1000);
+  // A entrada (CSS, fora do relógio do teste) desliza pela esquerda: mede a borda só com o toast parado no lugar.
+  await expect.poll(() => shell.evaluate(el => { const m = new DOMMatrix(getComputedStyle(el).transform); return Math.abs(m.m41) + Math.abs(m.m42); })).toBeLessThan(0.5);
   const bounds = (await shell.boundingBox())!;
   await page.mouse.move(bounds.x + 1, bounds.y + bounds.height / 2);
   await expect(notification).toHaveAttribute("data-paused", "true");
