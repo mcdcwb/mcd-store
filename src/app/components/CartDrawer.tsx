@@ -47,7 +47,8 @@ export function CartDrawer({
   onCheckout: () => void;
   onExplore: () => void;
 }) {
-  const [rendered, setRendered] = useState(open);
+  // visible: carrinho na tela (aberto ou fechando). O DOM fica sempre montado e, fora disso, escondido.
+  const [visible, setVisible] = useState(open);
   const overlayRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -56,13 +57,17 @@ export function CartDrawer({
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const initializedRef = useRef(false);
 
-  if (open && !rendered) setRendered(true);
+  if (open && !visible) setVisible(true);
 
-  // Monta escondido (antes da pintura) e anima abrir/fechar. Cada mudança mata a timeline anterior,
+  // Trava a rolagem antes da timeline (este efeito roda antes do de baixo), e a abertura só começa no
+  // quadro seguinte: o recálculo de layout do lockScroll não cai no primeiro quadro da animação.
+  useLayoutEffect(() => (visible ? lockScroll() : undefined), [visible]);
+
+  // Anima abrir/fechar só com transform (xPercent/y) e opacity. Cada mudança mata a timeline anterior,
   // e as animações partem do estado atual, então abrir e fechar rápido não quebra nada.
   useLayoutEffect(() => {
     const overlay = overlayRef.current, panel = drawerRef.current;
-    if (!rendered || !overlay || !panel) return;
+    if (!visible || !overlay || !panel) return;
     const layers = layersRef.current.filter((layer): layer is HTMLDivElement => Boolean(layer));
     const content = Array.from(panel.querySelectorAll<HTMLElement>("[data-cart-stagger]"));
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -73,8 +78,9 @@ export function CartDrawer({
       if (reduced) { gsap.set(panel, { opacity: 0 }); gsap.set(layers, { autoAlpha: 0 }); }
       else { gsap.set([...layers, panel], { xPercent: 100 }); gsap.set(content, { opacity: 0, y: CONTENT_OFFSET_Y }); }
     }
-    const tl = gsap.timeline();
+    const tl = gsap.timeline({ paused: open });
     timelineRef.current = tl;
+    let frame = 0;
     if (open) {
       overlay.style.pointerEvents = panel.style.pointerEvents = "";
       if (!panel.contains(document.activeElement)) {
@@ -86,6 +92,7 @@ export function CartDrawer({
         .to(layers, { xPercent: 0, duration: OPEN.layer, stagger: OPEN.layerStagger, ease: "power4.out" }, 0)
         .to(panel, { xPercent: 0, duration: OPEN.panel, ease: "power4.out" }, OPEN.panelDelay)
         .to(content, { opacity: 1, y: 0, duration: OPEN.content, stagger: OPEN.contentStagger, ease: "power2.out" }, OPEN.contentDelay);
+      frame = requestAnimationFrame(() => tl.play());
     } else {
       // Fechando: deixa de bloquear cliques e devolve o foco já (ao botão que abriu ou ao do header).
       overlay.style.pointerEvents = panel.style.pointerEvents = "none";
@@ -93,36 +100,34 @@ export function CartDrawer({
         const target = returnFocusRef.current?.isConnected ? returnFocusRef.current : document.querySelector<HTMLElement>('[aria-label="Abrir carrinho"]');
         target?.focus({ preventScroll: true });
       }
-      tl.eventCallback("onComplete", () => { initializedRef.current = false; setRendered(false); });
+      tl.eventCallback("onComplete", () => { initializedRef.current = false; setVisible(false); });
       if (reduced) tl.to([overlay, panel], { opacity: 0, duration: REDUCED_MOTION_FADE });
       else tl.to(content, { opacity: 0, duration: CLOSE.content, ease: "power1.in" }, 0)
         .to(panel, { xPercent: 100, duration: CLOSE.panel, ease: "power3.in" }, CLOSE.panelDelay)
         .to([...layers].reverse(), { xPercent: 100, duration: CLOSE.layer, stagger: CLOSE.layerStagger, ease: "power3.in" }, CLOSE.layerDelay)
         .to(overlay, { opacity: 0, duration: CLOSE.overlay, ease: "power1.in" }, CLOSE.overlayDelay);
     }
-  }, [open, rendered]);
+    return () => cancelAnimationFrame(frame);
+  }, [open, visible]);
 
   useEffect(() => () => { timelineRef.current?.kill(); }, []);
 
-  // ESC fecha; a rolagem da página fica travada enquanto o carrinho está na tela.
+  // ESC fecha.
   useEffect(() => {
-    if (!rendered) return;
+    if (!visible) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && open) onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, open, rendered]);
-  useEffect(() => (rendered ? lockScroll() : undefined), [rendered]);
-
-  if (!rendered) return null;
+  }, [onClose, open, visible]);
 
   return (
-    <>
-      {/* Backdrop */}
+    <div style={visible ? undefined : { visibility: "hidden" }}>
+      {/* Backdrop: escurece só com opacity (sem backdrop-filter, que custa caro a cada quadro) */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 z-50 store-backdrop bg-foreground/30 backdrop-blur-sm"
+        className="fixed inset-0 z-50 store-backdrop bg-foreground/30"
         onClick={(event) => {
           const bounds = drawerRef.current?.getBoundingClientRect();
           if (!bounds) return;
@@ -268,7 +273,7 @@ export function CartDrawer({
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

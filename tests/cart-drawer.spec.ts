@@ -39,7 +39,7 @@ async function expectOpened(page: Page) {
 }
 async function expectClosed(page: Page) {
   await expect(heading(page)).toHaveCount(0);
-  await expect(page.locator("div.store-backdrop")).toHaveCount(0);
+  await expect(page.locator("div.store-backdrop")).toBeHidden(); // fica montado, escondido
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
 }
 
