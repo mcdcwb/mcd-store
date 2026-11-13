@@ -25,6 +25,7 @@ import { panelAccessOf } from "./lib/auth";
 import { FilterSection, FilterOptions } from "./components/CatalogFilters";
 import { AccountPage } from "./components/AccountPage";
 import { MyOrdersPage } from "./components/MyOrdersPage";
+import { BackToTop } from "./components/BackToTop";
 import { StoreLoading } from "./components/StoreLoading";
 import { ServiceStrip } from "./components/ServiceStrip";
 import {
@@ -792,6 +793,7 @@ export default function App() {
         onOpenAuth={() => { setCartOpen(false); setAuthOpen(true); }}
       />
 
+      <BackToTop blocked={cartOpen || authOpen || mobileMenuOpen} aboveWhatsapp={!cartOpen && !!contactUrl} />
       {!cartOpen && contactUrl && (
         <a
           href={contactUrl}
