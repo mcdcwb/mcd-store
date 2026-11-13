@@ -132,8 +132,10 @@ export function ServiceStrip() {
       if (!widths[0] || !widths[1]) return;
       const gapA = link.left - first.right;
       const gapB = last.left - link.right;
-      // gap = (right do último − left do primeiro − soma das larguras) / 2 → usado na emenda entre as cópias.
-      const seam = (last.right - first.left - widths[0] - widths[1] - widths[2]) / 2;
+      // Emenda entre as cópias. Com 3 itens (>= 640px), a média dos dois espaços do original. No celular,
+      // "E-COMMERCE" some e o ícone final gruda em "por LUAN MACHADO" (gapB é interno, 8px): são 2 itens, e a
+      // emenda usa o mesmo espaço entre eles (gapA). Antes entrava a média com gapB e a emenda ficava com ~metade.
+      const seam = tagShown ? (gapA + gapB) / 2 : gapA;
       const copyWidth = Math.round(last.right - first.left + seam); // inteiro: a emenda cai exatamente num pixel
       const next: StripLayout = {
         left: first.left - origin, widths, gapA, gapB, copyWidth,
