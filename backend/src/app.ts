@@ -22,7 +22,9 @@ export function createApp(options: { uploadProductImage?: ProductImageUploader; 
     app.set("trust proxy", 1);
     app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
     app.use(requestContext);
-
+    app.get("/health",(_req, res) => {
+        res.json({ ok:true});
+        });
     const allowedOrigins = new Set((process.env.FRONTEND_ORIGIN ?? "")
         .split(",").map(origin => origin.trim().replace(/\/$/, "")).filter(Boolean));
     if (process.env.NODE_ENV !== "production") {
