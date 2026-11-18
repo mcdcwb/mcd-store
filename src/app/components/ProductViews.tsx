@@ -220,6 +220,7 @@ export function ProductCard({
   const [selectedSize, setSelectedSize] = useState<Size | null>(null);
   const additionState = addState(product, selectedSize);
   const added = additionState === "added";
+  const favoriteArgs = [baseProduct.id, product.colorId, selectedSize] as const;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const productImages = product.images && product.images.length > 0 ? product.images : [product.imageUrl];
@@ -307,9 +308,9 @@ export function ProductCard({
         )}
         <ProductBadges product={badgeProduct ?? baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} />
         {/* Wishlist */}
-        {/* No card o favorito usa a cor exibida, sem tamanho. */}
-        <ProductFavoriteButton liked={favorite.isFavorite(baseProduct.id, product.colorId, null)} onFavorite={() => favorite.onFavorite(baseProduct.id, product.colorId, null)}
-          favoriteBusy={favorite.favoriteBusy(baseProduct.id, product.colorId, null)} favoritePending={favorite.favoritePending(baseProduct.id, product.colorId, null)} />
+        {/* No card o favorito usa a cor exibida e o tamanho selecionado no card (sem tamanho = só a cor), como na página do produto. */}
+        <ProductFavoriteButton liked={favorite.isFavorite(...favoriteArgs)} onFavorite={() => favorite.onFavorite(...favoriteArgs)}
+          favoriteBusy={favorite.favoriteBusy(...favoriteArgs)} favoritePending={favorite.favoritePending(...favoriteArgs)} />
       </div>
 
       {/* Info */}

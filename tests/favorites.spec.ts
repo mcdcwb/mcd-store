@@ -99,3 +99,52 @@ for (const touch of [false, true]) for (const width of [320, 390, 768, 1440]) {
     });
   });
 }
+
+test.describe("card favorite with size", () => {
+  let product: { id: number; colors: { id: number }[] } | undefined;
+  let adminToken = "";
+  const name = "Favorito Card Tamanho";
+  test.beforeAll(async ({ request }) => {
+    adminToken = (await (await request.post("/api/auth/login", { data: { email: process.env.E2E_ADMIN_EMAIL, password: process.env.E2E_ADMIN_PASSWORD } })).json()).accessToken;
+    const headers = { Authorization: `Bearer ${adminToken}` };
+    const categoryId = (await (await request.get("/api/categorias", { headers })).json()).find((c: { name: string }) => c.name === "camisetas").id;
+    const created = await request.post("/api/produtos", { headers, data: { name, price: 32, public: "unissex", categoryId,
+      colors: [{ colorName: "Preto", colorValue: "#111111", images: [], variants: [{ value: "P", stock: 3 }, { value: "M", stock: 2 }] }] } });
+    expect(created.status()).toBe(201);
+    product = await created.json();
+  });
+  test.afterAll(async ({ request }) => {
+    if (product) await request.delete(`/api/produtos/${product.id}`, { headers: { Authorization: `Bearer ${adminToken}` } });
+  });
+
+  test("favoriting from the card keeps the selected size and shows add to cart in Favoritos", async ({ page, request }) => {
+    const token = (await (await request.post("/api/auth/login", { data: { email: process.env.E2E_USER_EMAIL, password: process.env.E2E_USER_PASSWORD } })).json()).accessToken;
+    await request.delete(`/api/favoritos/${product!.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Entrar", exact: true }).first().click();
+    await page.getByLabel("E-mail", { exact: true }).fill(process.env.E2E_USER_EMAIL!);
+    await page.getByLabel("Senha", { exact: true }).fill(process.env.E2E_USER_PASSWORD!);
+    await page.locator('form button[type="submit"]').click();
+    await expect(page.getByRole("button", { name: "Cliente", exact: true })).toBeVisible();
+    await expect(page.getByText("Sincronizando favoritos e carrinho...")).toHaveCount(0);
+
+    const card = page.locator("main div.group").filter({ has: page.getByText(name, { exact: true }) });
+    await card.getByRole("button", { name: "M", exact: true }).click();
+    await expect(card.getByRole("button", { name: "M", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await card.getByRole("button", { name: "Favoritar", exact: true }).press("Enter");
+    await expect(card.getByRole("button", { name: "Remover dos favoritos" })).toHaveAttribute("aria-pressed", "true");
+    // O favorito é da combinação cor + tamanho: trocar o tamanho no card mostra outro estado.
+    await card.getByRole("button", { name: "P", exact: true }).click();
+    await expect(card.getByRole("button", { name: "Favoritar", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+    const saved = await (await request.get("/api/favoritos", { headers: { Authorization: `Bearer ${token}` } })).json();
+    expect(JSON.stringify(saved)).toContain('"size":"M"');
+
+    await page.goto("/favoritos");
+    const favorite = page.locator("main div.group").filter({ has: page.getByText(name, { exact: true }) });
+    await expect(favorite.getByText("Cor: Preto · Tamanho: M")).toBeVisible();
+    await expect(favorite.getByRole("button", { name: "Adicionar ao carrinho", exact: true })).toBeEnabled();
+    await expect(favorite.getByRole("button", { name: "Escolher tamanho" })).toHaveCount(0);
+    await request.delete(`/api/favoritos/${product!.id}`, { headers: { Authorization: `Bearer ${token}` } });
+  });
+});
