@@ -47,7 +47,7 @@ export function adaptProduct(value: unknown): Product {
   if (category && (!Number.isSafeInteger(categoryId) || Number(categoryId) <= 0 || typeof categoryName !== "string")) throw new Error("Categoria inválida.");
   const price = typeof p.price === "string" && p.price.trim() ? Number(p.price) : p.price;
   if (!Number.isSafeInteger(p.id) || Number(p.id) <= 0 || typeof p.name !== "string" ||
-    typeof price !== "number" || !Number.isFinite(price) || price <= 0 ||
+    typeof price !== "number" || !Number.isFinite(price) || price < 0 || (price === 0 && p.isPublished !== false) ||
     typeof p.public !== "string" || typeof categoryName !== "string" || !Array.isArray(p.colors) || !p.colors.length)
     throw new Error("Produto inválido.");
   const colors: ProductColor[] = p.colors.map((raw: unknown) => {

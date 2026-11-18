@@ -132,7 +132,8 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
           </div>
           <label className="block space-y-2 text-sm font-medium">Descrição<textarea className={inputClass} rows={4} value={draft.description} onChange={event => change("description", event.target.value)} /></label>
           <div className="grid gap-4 sm:grid-cols-2">
-            {field("Preço (R$)", "price", "number")}
+            {/* Não publicado (banner): preço oculto, gravado como 0 se vazio. */}
+            {draft.isPublished && field("Preço (R$)", "price", "number")}
             <div className="space-y-2 text-sm font-medium">
               <label htmlFor={`${colorId}-badge`}>Badge (opcional)</label>
               <input id={`${colorId}-badge`} className={inputClass} value={draft.badge} maxLength={manualBadgeMaxLength}
@@ -159,7 +160,9 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
             {/* Texto de ajuda fora do <label>: o nome da caixa fica só "Publicado na loja"; a ajuda vai por aria-describedby. */}
             <div className="flex items-center gap-2 text-sm sm:col-span-2">
               <label className="flex items-center gap-2"><input type="checkbox" aria-describedby={publishedHelpId} checked={draft.isPublished} onChange={event => setDraft(previous => ({ ...previous, isPublished: event.target.checked }))} />Publicado na loja</label>
-              <p id={publishedHelpId} className="text-xs text-muted-foreground ml-2 mt-0.5">Itens não publicados ainda aparecerão no carrossel.</p>
+              <p id={publishedHelpId} className="text-xs text-muted-foreground ml-2 mt-0.5">{draft.isPublished
+                ? "Itens não publicados ainda aparecerão no carrossel."
+                : "Não publicado: só aparece no carrossel. Preço, cor, variantes e estoque são opcionais; ao publicar, voltam a ser obrigatórios."}</p>
             </div>
           </div>
         </section>
@@ -181,14 +184,15 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
               : <span className="text-sm text-muted-foreground">Sem badge</span>}
           </div>
         </section>
-        <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5">
+        {/* Não publicado: nome/HEX da cor ficam ocultos (o backend usa a cor interna do banner); com mais de uma cor, ainda dá para escolher de qual ver as imagens. */}
+        {(draft.isPublished || draft.colors.length > 1) && <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5">
           <h2 className="font-semibold text-lg">Cores do produto</h2>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Cores do produto">
             {draft.colors.map((color, index) => <button key={color.key} type="button" aria-pressed={color.key === active.key}
               onClick={() => selectColor(color.key)} className={`max-w-full break-words rounded-lg border px-3 py-2 ${color.key === active.key ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>
               {color.colorName || `Cor ${index + 1}`}
             </button>)}
-            <Button type="button" variant="outline" onClick={() => { const color = colorDraft(); setDraft(p => ({ ...p, colors: [...p.colors, color] })); selectColor(color.key); }} className="h-auto min-h-10 rounded-lg px-3 py-2">+ Adicionar cor</Button>
+            {draft.isPublished && <Button type="button" variant="outline" onClick={() => { const color = colorDraft(); setDraft(p => ({ ...p, colors: [...p.colors, color] })); selectColor(color.key); }} className="h-auto min-h-10 rounded-lg px-3 py-2">+ Adicionar cor</Button>}
           </div>
           <button type="button" disabled={draft.colors.length === 1} className="text-sm text-destructive disabled:opacity-40" onClick={() => {
             if (active.id || active.colorName || active.colorValue || active.imageUrl || active.images || active.variants.some(v => v.value || Number(v.stock))) setRemoving(active.key);
@@ -198,7 +202,7 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
             <p>Remover esta cor, suas imagens e variantes? Ao salvar, os itens dessa cor também serão removidos dos carrinhos.</p>
             <div className="flex flex-wrap gap-4"><button type="button" onClick={() => setRemoving(null)}>Cancelar remoção</button><button type="button" className="text-destructive" onClick={() => removeColor(removing)}>Confirmar remoção da cor</button></div>
           </div>}
-          <div className="grid gap-4 sm:grid-cols-2">
+          {draft.isPublished && <div className="grid gap-4 sm:grid-cols-2">
             {colorField("Nome da cor", "colorName")}
             <div className="min-w-0 space-y-2 text-sm font-medium">
               <label htmlFor={colorId}>Valor da cor</label>
@@ -219,9 +223,9 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
               </p>
               {colorNotice && <p role="status" className="text-xs font-normal text-muted-foreground">{colorNotice}</p>}
             </div>
-          </div>
-        </section>
-        <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-4">
+          </div>}
+        </section>}
+        {draft.isPublished && <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-4">
           <div className="flex flex-wrap justify-between gap-3 items-center"><h2 className="font-semibold text-lg">Variantes e estoque</h2>
             <Button type="button" variant="outline" onClick={() => changeColor("variants", [...active.variants, { value: "", stock: "0" }])} className="h-auto min-h-10 rounded-lg px-3 py-2 font-semibold text-primary"><Plus size={16} />Adicionar variante</Button>
           </div>
@@ -232,10 +236,10 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
             <label className="space-y-1 text-sm">Estoque {index + 1}<input className={inputClass} type="number" min="0" max="2147483647" step="1" value={item.stock} onChange={event => variant(index, "stock", event.target.value)} /></label>
             <button type="button" aria-label={`Remover variante ${index + 1}`} className="p-3 text-destructive rounded-lg hover:bg-destructive/10" onClick={() => changeColor("variants", active.variants.filter((_, i) => i !== index))}><Trash2 size={18} /></button>
           </div>)}
-        </section>
+        </section>}
       </div>
       <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5 self-start">
-        <h2 className="font-semibold text-lg">Imagens desta cor</h2>
+        <h2 className="font-semibold text-lg">{draft.isPublished || draft.colors.length > 1 ? "Imagens desta cor" : "Imagens"}</h2>
         <div ref={previewRef}><ProductImage src={imageSource} alt="Prévia do produto" className="w-full h-56 object-contain rounded-lg bg-muted" /></div>
         {previewImages.length > 1 && <div className="flex flex-wrap gap-2" aria-label="Imagens desta cor">
           {previewImages.map((src, index) => <ProductImage key={src} src={src} alt={`Imagem ${index + 1} de ${active.colorName || "esta cor"}`} className="h-20 w-20 rounded-lg bg-muted object-contain" />)}

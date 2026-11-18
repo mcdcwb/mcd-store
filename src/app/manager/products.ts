@@ -1,6 +1,6 @@
 import type { CarouselDisplay } from "../lib/carousel-display.ts";
 import { manualBadgeMaxLength } from "../../../backend/src/lib/manual-badges.ts";
-import { hasPublishableName, publishedNameMessage } from "../../../backend/src/lib/product-name.ts";
+import { hasPublishableName, internalColorMessage, isInternalBannerColor, publishedNameMessage } from "../../../backend/src/lib/product-publishing.ts";
 export const audiences = ["masculino", "feminino", "unissex", "infantil"];
 export const labels: Record<string, string> = {
   masculino: "Masculino", feminino: "Feminino", unissex: "Unissex", infantil: "Infantil"
@@ -54,7 +54,9 @@ export function productStats(products: ManagedProduct[], threshold: number) {
 }
 let nextColorKey = 0;
 export function colorDraft(color?: ColorInput): ColorDraft {
-  return { key: `color-${++nextColorKey}`, id: color?.id, colorName: color?.colorName ?? "", colorValue: normalizeHex(color?.colorValue ?? "") ?? color?.colorValue ?? "",
+  // A cor interna do banner aparece vazia: ao publicar, o formulário pede uma cor real.
+  const internal = !!color && isInternalBannerColor(color);
+  return { key: `color-${++nextColorKey}`, id: color?.id, colorName: internal ? "" : color?.colorName ?? "", colorValue: internal ? "" : normalizeHex(color?.colorValue ?? "") ?? color?.colorValue ?? "",
     imageUrl: color?.imageUrl ?? "", images: color?.images.join("\n") ?? "",
     variants: color?.variants.map(v => ({ ...v, stock: String(v.stock) })) ?? [{ value: "", stock: "0" }] };
 }
@@ -67,12 +69,15 @@ export function toDraft(product?: ManagedProduct): ProductDraft {
 export function validateDraft(draft: ProductDraft, originalBadge?: string | null): string[] {
   const errors: string[] = [];
   if (draft.badge.length > manualBadgeMaxLength && draft.badge !== originalBadge) errors.push("O badge deve ter no máximo 12 caracteres.");
-  // Nome só é obrigatório na loja; não publicado (ex.: banner do carrossel) pode ficar sem nome.
-  if (draft.isPublished && !hasPublishableName(draft.name)) errors.push(publishedNameMessage);
-  if (!draft.price.trim() || !Number.isFinite(Number(draft.price)) || Number(draft.price) <= 0) errors.push("Informe um preço maior que zero.");
   if (!draft.public.trim() || !Number.isSafeInteger(Number(draft.categoryId)) || Number(draft.categoryId) <= 0) errors.push("Informe o público e a categoria.");
   if (!normalizeHex(draft.badgeBackgroundColor) || !normalizeHex(draft.badgeTextColor)) errors.push("Informe as cores do badge no formato HEX #RRGGBB.");
+  // Não publicado (ex.: banner do carrossel): nome, preço, cor, variantes e estoque são opcionais;
+  // toInput completa o que faltar (preço 0, cor interna). A categoria continua obrigatória.
+  if (!draft.isPublished) return errors;
+  if (!hasPublishableName(draft.name)) errors.push(publishedNameMessage);
+  if (!draft.price.trim() || !Number.isFinite(Number(draft.price)) || Number(draft.price) <= 0) errors.push("Informe um preço maior que zero.");
   if (!draft.colors.length) errors.push("Adicione pelo menos uma cor válida.");
+  if (draft.colors.some(color => isInternalBannerColor(color))) errors.push(internalColorMessage);
   draft.colors.forEach((color, index) => {
     const prefix = `Cor ${index + 1} (${color.colorName || "sem nome"}): `;
     if (!color.colorName.trim()) errors.push(prefix + "informe o nome da cor.");
@@ -89,10 +94,25 @@ export function validateDraft(draft: ProductDraft, originalBadge?: string | null
   });
   return errors;
 }
+// Variantes de produto não publicado (campos ocultos): ignora as vazias/repetidas e estoque inválido vira 0.
+function optionalVariants(variants: ColorDraft["variants"]) {
+  const seen = new Set<string>();
+  return variants.flatMap(v => {
+    const value = v.value.trim(), stock = Number(v.stock);
+    if (!value || seen.has(value)) return [];
+    seen.add(value);
+    return [{ id: v.id, value, stock: v.stock.trim() && Number.isInteger(stock) && stock >= 0 && stock <= 2147483647 ? stock : 0 }];
+  });
+}
 export function toInput(draft: ProductDraft): ProductInput {
-  return { name: draft.name.trim(), description: draft.description, price: Number(draft.price), public: draft.public, categoryId: Number(draft.categoryId), isPublished: draft.isPublished,
+  const published = draft.isPublished, price = Number(draft.price);
+  return { name: draft.name.trim(), description: draft.description,
+    // Não publicado: preço vazio (ou inválido, já que o campo fica oculto) é gravado como 0.
+    price: published ? price : draft.price.trim() && Number.isFinite(price) && price >= 0 ? price : 0,
+    public: draft.public, categoryId: Number(draft.categoryId), isPublished: published,
     badge: draft.badge.trim() || null, badgeBackgroundColor: normalizeHex(draft.badgeBackgroundColor)!, badgeTextColor: normalizeHex(draft.badgeTextColor)!, colors: draft.colors.map(color => ({ id: color.id,
-      colorName: color.colorName.trim(), colorValue: normalizeHex(color.colorValue)!, imageUrl: color.imageUrl.trim(),
+      // Não publicado: nome/HEX vazios seguem vazios e o backend usa a cor interna do banner.
+      colorName: color.colorName.trim(), colorValue: normalizeHex(color.colorValue) ?? (published ? color.colorValue : ""), imageUrl: color.imageUrl.trim(),
       images: color.images.split(/\r?\n/).map(i => i.trim()).filter(Boolean),
-      variants: color.variants.map(v => ({ id: v.id, value: v.value.trim(), stock: Number(v.stock) })) })) };
+      variants: published ? color.variants.map(v => ({ id: v.id, value: v.value.trim(), stock: Number(v.stock) })) : optionalVariants(color.variants) })) };
 }

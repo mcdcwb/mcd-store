@@ -102,6 +102,9 @@ test("adapter keeps image order, removes duplicates and maps color and descripti
 
 test("invalid prices, response shapes and variant stocks are rejected", () => {
   for (const price of [null, "", "abc", -1, 0, Infinity]) assert.throws(() => adaptProduct({ ...input, price }));
+  // Preço 0 só em produto não publicado (banner do carrossel).
+  assert.equal(adaptProduct({ ...input, price: 0, isPublished: false }).price, 0);
+  assert.throws(() => adaptProduct({ ...input, price: -1, isPublished: false }));
   for (const stock of [-1, 0.5, "3", null]) {
     assert.throws(() => adaptProduct({ ...input, variants: [{ value: "P", stock }] }));
   }

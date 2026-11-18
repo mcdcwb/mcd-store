@@ -180,6 +180,12 @@ test("checkout persists orders without changing cart/stock and confirms atomical
       assert.equal((await changed.json()).review.items[0].unitPriceCents, 8990);
       await prisma.product.update({ where: { id: productId }, data: { isPublished: false } });
       assert.equal((await req("/checkout/whatsapp", "POST", await body("PICKUP"))).status, 409);
+      // Banner (não publicado) com preço 0: aparece como conflito "indisponível", não como erro de preço.
+      await prisma.product.update({ where: { id: productId }, data: { price: 0 } });
+      const banner = await req("/checkout"); assert.equal(banner.status, 200);
+      assert.match(JSON.stringify((await banner.json()).conflicts), /indisponível para compra/);
+      assert.equal((await req("/checkout/whatsapp", "POST", await body("PICKUP"))).status, 409);
+      await prisma.product.update({ where: { id: productId }, data: { price: 89.9 } });
       await prisma.product.update({ where: { id: productId }, data: { isPublished: true } });
       const oldCart = await body("PICKUP");
       await prisma.cartItem.update({ where: { userId_variantId: { userId: user.id, variantId: variant.id } }, data: { quantity: 1 } });

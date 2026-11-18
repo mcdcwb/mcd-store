@@ -5,7 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { lockCarouselSelection } from "../lib/carousel-lock.js";
 import type { createProductSchema, updateProductSchema } from "../schemas/product.schema.js";
 import { manualBadgeTextSchema } from "../schemas/product.schema.js";
-import { hasPublishableName, publishedNameMessage } from "../lib/product-name.js";
+import { publicationIssue, withInternalColor } from "../lib/product-publishing.js";
 export const productInclude = { category: { select: { id: true, name: true } }, colors: { orderBy: [{ position: "asc" }, { id: "asc" }], include: { variants: { orderBy: { id: "asc" } } } } } satisfies Prisma.ProductInclude;
 export class ProductError extends Error {
     constructor(public status: number, message: string) { super(message); }
@@ -84,8 +84,12 @@ export async function setCarouselOrder(productIds: number[]) {
 export async function createProduct(data: z.infer<typeof createProductSchema>) {
     if (data.colors.some(c => c.id !== undefined || c.variants.some(v => v.id !== undefined)))
         throw new ProductError(400, "Novas cores e variantes não devem informar IDs.");
-    const { colors, ...product } = data;
-    if (product.isPublished !== false && !hasPublishableName(product.name)) throw new ProductError(400, publishedNameMessage);
+    const { colors: requested, ...product } = data;
+    const published = product.isPublished !== false;
+    const issue = published ? publicationIssue({ name: product.name, price: product.price, colors: requested }) : null;
+    if (issue) throw new ProductError(400, issue);
+    // Não publicado (banner): cor sem nome/HEX ou ausente vira a cor interna que guarda as imagens.
+    const colors = published ? requested : withInternalColor(requested);
     if (!await prisma.category.findUnique({ where: { id: product.categoryId } })) throw new ProductError(400, "Categoria não encontrada. Atualize a lista de categorias.");
     return prisma.product.create({ data: { ...product, price: String(product.price), colors: { create: colors.map(({ variants, ...color }, position) => ({
         ...color, position, variants: { create: variants }
@@ -99,10 +103,12 @@ export async function updateProduct(id: number, data: z.infer<typeof updateProdu
         if (!existing) throw new ProductError(404, "Produto não encontrado.");
         if (typeof data.badge === "string" && data.badge !== existing.badge && !manualBadgeTextSchema.safeParse(data.badge).success)
             throw new ProductError(400, "O badge deve ter no máximo 12 caracteres.");
-        const { colors, ...product } = data;
-        // Combina com o estado salvo: publicar sem nome (ou apagar o nome de um publicado) é recusado.
-        if ((product.isPublished ?? existing.isPublished) && !hasPublishableName(product.name ?? existing.name))
-            throw new ProductError(400, publishedNameMessage);
+        const { colors: requested, ...product } = data;
+        // Combina com o estado salvo: publicar sem nome/preço/cor real (ou apagar esses dados de um publicado) é recusado.
+        const published = product.isPublished ?? existing.isPublished;
+        const issue = published ? publicationIssue({ name: product.name ?? existing.name, price: product.price ?? Number(existing.price), colors: requested ?? existing.colors }) : null;
+        if (issue) throw new ProductError(400, issue);
+        const colors = requested && !published ? withInternalColor(requested) : requested;
         if (product.categoryId !== undefined && !await tx.category.findUnique({ where: { id: product.categoryId } })) throw new ProductError(400, "Categoria não encontrada. Atualize a lista de categorias.");
         if (colors) {
             for (const color of colors) {

@@ -25,18 +25,21 @@ const variantsSchema = z.array(productVariantSchema).superRefine((variants, ctx)
     });
 });
 export const productColorSchema = z.strictObject({
-    id: id.optional(), colorName: z.string().trim().min(1, "Informe o nome da cor."),
-    colorValue: z.string().trim().regex(/^#[0-9a-f]{6}$/i, "Informe HEX #RRGGBB.").transform(v => v.toUpperCase()),
+    // Nome e HEX podem vir vazios só em produto não publicado (viram a cor interna do banner no service).
+    id: id.optional(), colorName: z.string().trim(),
+    colorValue: z.string().trim().regex(/^(#[0-9a-f]{6})?$/i, "Informe HEX #RRGGBB.").transform(v => v.toUpperCase()),
     imageUrl: z.string().trim().optional(), images: z.array(z.string().trim().min(1)), variants: variantsSchema
 });
-const colorsSchema = z.array(productColorSchema).min(1, "Adicione pelo menos uma cor.").superRefine((colors, ctx) => {
+// Pode vir vazio em produto não publicado; a exigência para publicados fica no service.
+const colorsSchema = z.array(productColorSchema).superRefine((colors, ctx) => {
     const ids = colors.flatMap(c => c.id === undefined ? [] : [c.id]);
     if (new Set(ids).size !== ids.length) ctx.addIssue({ code: "custom", message: "ID de cor duplicado." });
 });
 export const createProductSchema = z.strictObject({
-    // Pode ser "" quando não publicado; a exigência para publicados fica no service (vale também em edições parciais).
+    // Nome "", preço 0 e cores vazias são aceitos quando não publicado; a exigência para publicados
+    // fica no service (product-publishing.ts), que vale também em edições parciais.
     name: z.string().trim(),
-    description: z.string().optional(), price: z.number().positive("O preço deve ser maior que zero"),
+    description: z.string().optional(), price: z.number().min(0, "O preço não pode ser negativo."),
     public: z.string().trim().min(1), categoryId: id, isPublished: z.boolean().optional(),
     badge: manualBadgeTextSchema.nullable().optional(), badgeBackgroundColor: badgeColor.optional(), badgeTextColor: badgeColor.optional(), colors: colorsSchema
 });

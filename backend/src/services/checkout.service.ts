@@ -29,7 +29,8 @@ async function review(userId: number, tx: Prisma.TransactionClient) {
       variantId: item.variantId,
       message: `${label}: o estoque mudou. Você selecionou ${item.quantity} unidades, mas agora existem apenas ${variant.stock} disponíveis.`
     });
-    if (!Number.isSafeInteger(price) || price < 1 || !Number.isSafeInteger(subtotalCents) || subtotalCents < 1)
+    // Não publicado (ex.: banner com preço 0) já é conflito acima; o pedido não segue.
+    if (item.product.isPublished && (!Number.isSafeInteger(price) || price < 1 || !Number.isSafeInteger(subtotalCents) || subtotalCents < 1))
       throw new CheckoutError(409, "Um produto possui preço inválido. Entre em contato com a loja.");
     totalCents += subtotalCents;
     return { ...item, unitPriceCents: price, subtotalCents };

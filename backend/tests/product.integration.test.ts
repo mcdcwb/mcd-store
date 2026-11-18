@@ -122,3 +122,73 @@ test("nested product CRUD preserves identity, cart relations and per-color stock
     await server.close(); await prisma.$disconnect();
   }
 });
+
+test("unpublished banners accept empty price/color/variants and never reach the store, cart or favorites", async () => {
+  const server = await startTestServer(createApp());
+  const email = randomUUID() + "@example.test", userEmail = randomUUID() + "@example.test", password = "TestPasswordA1-" + randomUUID();
+  const ids: number[] = [];
+  try {
+    await createAdmin({ email, password }); await createUser({ name: "Banner Customer", email: userEmail, password });
+    const admin = (await (await server.request("/auth/login", "POST", { email, password })).json()).accessToken;
+    const token = (await (await server.request("/auth/login", "POST", { email: userEmail, password })).json()).accessToken;
+    const req = (path: string, method = "GET", body?: unknown) => server.request(path, method, body, admin);
+    const categoryId = (await fixtureCategory()).id;
+    const banner = { name: "", price: 0, public: "unissex", categoryId, isPublished: false };
+
+    // Sem cor informada: cria a cor interna só para guardar as imagens.
+    let r = await req("/produtos", "POST", { ...banner, colors: [] }); assert.equal(r.status, 201);
+    const empty = await r.json(); ids.push(empty.id);
+    assert.equal(empty.price, "0");
+    assert.deepEqual(empty.colors.map((c: any) => [c.colorName, c.colorValue, c.images, c.variants]), [["Banner", "#000000", [], []]]);
+    // Cor só com imagens (nome/HEX vazios) também vira a cor interna, preservando as imagens.
+    r = await req("/produtos", "POST", { ...banner, colors: [{ colorName: "", colorValue: "", imageUrl: "/loja.png", images: ["/loja-2.png"], variants: [] }] });
+    assert.equal(r.status, 201);
+    const photo = await r.json(); ids.push(photo.id);
+    assert.deepEqual([photo.colors[0].colorName, photo.colors[0].colorValue, photo.colors[0].imageUrl, photo.colors[0].images], ["Banner", "#000000", "/loja.png", ["/loja-2.png"]]);
+    assert.equal((await req("/produtos", "POST", { ...banner, price: -1, colors: [] })).status, 400);
+    assert.equal((await req("/produtos", "POST", { ...banner, categoryId: undefined, colors: [] })).status, 400);
+
+    // Publicar exige nome, preço > 0 e cor real, também em edição parcial.
+    const internal = editable(photo.colors[0]);
+    for (const body of [
+      { isPublished: true },
+      { isPublished: true, name: "Banner publicado" },
+      { isPublished: true, name: "Banner publicado", price: 10 },
+      { isPublished: true, name: "Banner publicado", price: 10, colors: [] },
+      { isPublished: true, name: "Banner publicado", price: 10, colors: [{ ...internal, colorName: "" }] },
+      { isPublished: true, name: "Banner publicado", price: 0, colors: [{ ...internal, colorName: "Azul", colorValue: "#0000FF" }] }
+    ]) assert.equal((await req(`/produtos/${photo.id}`, "PUT", body)).status, 400, JSON.stringify(body));
+    for (const body of [{ ...banner, name: "Produto novo", isPublished: true, colors: [color()] }, { ...banner, name: "Produto novo", price: 10, isPublished: true, colors: [] },
+      { ...banner, name: "Produto novo", price: 10, isPublished: true, colors: [{ colorName: "Banner", colorValue: "#000000", images: [], variants: [] }] }])
+      assert.equal((await req("/produtos", "POST", { colors: [], ...body })).status, 400, JSON.stringify(body));
+    assert.equal((await prisma.product.findUniqueOrThrow({ where: { id: photo.id } })).isPublished, false);
+
+    // Banner já cadastrado com preço e cor reais continua funcionando como antes.
+    r = await req("/produtos", "POST", { ...banner, name: "Banner antigo", price: 50, colors: [color("Vermelho")] }); assert.equal(r.status, 201);
+    const legacy = await r.json(); ids.push(legacy.id);
+    assert.deepEqual([legacy.price, legacy.colors[0].colorName, legacy.colors[0].colorValue, legacy.colors[0].variants.length], ["50", "Vermelho", "#ABCDEF", 2]);
+    r = await req(`/produtos/${legacy.id}`, "PUT", { isPublished: true }); assert.equal(r.status, 200);
+    // Publicado não pode perder o preço nem as cores.
+    for (const body of [{ price: 0 }, { colors: [] }, { name: "" }]) assert.equal((await req(`/produtos/${legacy.id}`, "PUT", body)).status, 400);
+    r = await req(`/produtos/${legacy.id}`, "PUT", { isPublished: false }); assert.equal(r.status, 200);
+
+    // Não publicado: fora do catálogo, do carrinho e dos favoritos.
+    const catalog = await (await server.request("/produtos", "GET")).json();
+    assert.ok(ids.every(id => !catalog.some((p: any) => p.id === id)));
+    const user = (path: string, method: string, body?: unknown) => server.request(path, method, body, token);
+    const variant = legacy.colors[0].variants[0];
+    assert.equal((await user("/carrinho", "POST", { productId: legacy.id, colorId: legacy.colors[0].id, size: variant.value, quantity: 1 })).status, 409);
+    assert.equal((await user("/carrinho", "PATCH", { productId: legacy.id, colorId: legacy.colors[0].id, size: variant.value, quantity: 1 })).status, 409);
+    const merged = await (await user("/carrinho/sincronizar", "POST", { items: [{ productId: legacy.id, colorId: legacy.colors[0].id, size: variant.value, quantity: 1 }] })).json();
+    assert.equal(merged.items.length, 0);
+    for (const selection of [{ productId: legacy.id }, { productId: legacy.id, colorId: legacy.colors[0].id, size: variant.value }, { productId: photo.id }])
+      assert.equal((await user("/favoritos", "POST", selection)).status, 404);
+    assert.equal((await user(`/favoritos/${legacy.id}`, "PUT")).status, 404);
+    assert.equal(await prisma.favorite.count({ where: { productId: { in: ids } } }), 0);
+    assert.equal(await prisma.cartItem.count({ where: { variant: { color: { productId: { in: ids } } } } }), 0);
+  } finally {
+    await prisma.product.deleteMany({ where: { id: { in: ids } } });
+    await prisma.user.deleteMany({ where: { email: userEmail } }); await prisma.admin.deleteMany({ where: { email } });
+    await server.close(); await prisma.$disconnect();
+  }
+});

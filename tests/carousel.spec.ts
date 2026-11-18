@@ -428,7 +428,8 @@ for (const width of [1440, 390]) test(`slides honor their display mode (Ajustar 
 for (const width of [1440, 390]) test(`unnamed banner slide shows no label and uses a generic alt at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.route("**/carousel-*.svg", svgRoute);
-  const slides = [{ ...fixture(1), name: "", isPublished: false }, fixture(2)];
+  // Banner como o painel grava: sem nome, preço 0 (Decimal em texto), cor interna e sem variantes.
+  const slides = [{ ...fixture(1), name: "", isPublished: false, price: "0", colors: fixture(1).colors.map(color => ({ ...color, colorName: "Banner", colorValue: "#000000", variants: [] })) }, fixture(2)];
   await page.route("**/api/produtos", route => route.fulfill({ json: [fixture(2)] }));
   await page.route("**/api/produtos/carrossel", route => route.fulfill({ json: slides }));
   await page.goto("/");

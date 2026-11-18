@@ -744,3 +744,91 @@ test("unpublished banner can be saved without a name, appears as 'Banner sem nom
     expect(after.filter((id: number) => !before.has(id))).toEqual([]);
   }
 });
+
+test("unpublished banner hides price, color, variants and stock; publishing requires them again", async ({ page }) => {
+  await login(page);
+  const headers = { Authorization: `Bearer ${await token(page)}` };
+  const before = new Set((await (await page.request.get("/api/produtos/admin", { headers })).json()).map((p: { id: number }) => p.id));
+  const ids: number[] = [];
+  const image = "https://placehold.co/1920x420";
+  try {
+    await page.goto("/manager/produtos/novo");
+    await page.getByLabel("Categoria", { exact: true }).selectOption({ label: "camisetas" });
+    // Publicado (padrão): todos os campos visíveis.
+    for (const label of ["Preço (R$)", "Nome da cor", "Valor da cor"]) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Variantes e estoque" })).toBeVisible();
+    await page.getByRole("checkbox", { name: "Publicado na loja", exact: true }).uncheck();
+    // Não publicado: só nome (opcional), categoria e imagens.
+    for (const label of ["Preço (R$)", "Nome da cor", "Valor da cor"]) await expect(page.getByLabel(label, { exact: true })).toHaveCount(0);
+    for (const heading of ["Variantes e estoque", "Cores do produto"]) await expect(page.getByRole("heading", { name: heading })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Imagens", exact: true })).toBeVisible();
+    for (const label of ["Nome", "Categoria", "Imagem principal"]) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+    await page.getByLabel("Imagem principal", { exact: true }).fill(image);
+    const created = page.waitForResponse(response => response.url().endsWith("/api/produtos") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Salvar produto" }).click();
+    const response = await created;
+    expect(response.status()).toBe(201);
+    const banner = await response.json();
+    ids.push(banner.id);
+    expect(banner).toMatchObject({ name: "", price: "0", isPublished: false });
+    expect(banner.colors).toHaveLength(1);
+    expect(banner.colors[0]).toMatchObject({ colorName: "Banner", colorValue: "#000000", imageUrl: image, variants: [] });
+    await expectSuccess(page, "Produto criado com sucesso!");
+
+    // Lista: sem preço.
+    await expect(page).toHaveURL(/\/manager\/produtos$/);
+    const row = page.getByRole("article").filter({ has: page.getByRole("img", { name: "Banner da MCD Store" }) }).filter({ hasText: "Sem preço" });
+    await expect(row.first()).toBeVisible();
+
+    // Edição: ao marcar "publicado", os campos voltam e a cor interna aparece vazia; não publica com preço 0 nem sem cor.
+    await page.goto(`/manager/produtos/${banner.id}/editar`);
+    await expect(page.getByLabel("Preço (R$)", { exact: true })).toHaveCount(0);
+    await page.getByRole("checkbox", { name: "Publicado na loja", exact: true }).check();
+    await expect(page.getByLabel("Nome da cor", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Valor da cor", { exact: true })).toHaveValue("");
+    await page.getByLabel("Nome", { exact: true }).fill("Banner da loja");
+    await page.getByRole("button", { name: "Salvar produto" }).click();
+    const alert = page.getByRole("alert");
+    await expect(alert).toContainText("Informe um preço maior que zero.");
+    await expect(alert).toContainText("informe o nome da cor.");
+    await page.getByLabel("Preço (R$)", { exact: true }).fill("10");
+    await page.getByLabel("Nome da cor", { exact: true }).fill("Banner");
+    await page.getByLabel("Valor da cor", { exact: true }).fill("#000000");
+    await page.getByRole("button", { name: "Salvar produto" }).click();
+    await expect(alert).toContainText("Troque a cor interna do banner por uma cor real");
+
+    // API: mesmas regras no backend.
+    const priceless = await page.request.put(`/api/produtos/${banner.id}`, { headers, data: { isPublished: true, name: "Banner da loja" } });
+    expect(priceless.status()).toBe(400);
+    expect((await priceless.json()).error).toBe("Informe um preço maior que zero para publicar o produto na loja.");
+    const internal = await page.request.put(`/api/produtos/${banner.id}`, { headers, data: { isPublished: true, name: "Banner da loja", price: 10 } });
+    expect(internal.status()).toBe(400);
+    expect((await internal.json()).error).toContain("cor interna do banner");
+    expect((await (await page.request.get("/api/produtos/admin", { headers })).json()).find((p: { id: number }) => p.id === banner.id).isPublished).toBe(false);
+
+    // Banner antigo com preço, cor e variantes: salvar sem mudar mantém tudo como estava.
+    const legacyResponse = await page.request.post("/api/produtos", { headers, data: { name: "Banner antigo " + randomUUID(), price: 50, public: "unissex", categoryId: banner.categoryId, isPublished: false,
+      colors: [{ colorName: "Vermelho", colorValue: "#AA0000", imageUrl: image, images: [], variants: [{ value: "Único", stock: 2 }] }] } });
+    expect(legacyResponse.status()).toBe(201);
+    const legacy = await legacyResponse.json();
+    ids.push(legacy.id);
+    await page.goto(`/manager/produtos/${legacy.id}/editar`);
+    const saved = page.waitForResponse(response => response.url().endsWith(`/api/produtos/${legacy.id}`) && response.request().method() === "PUT");
+    await page.getByRole("button", { name: "Salvar produto" }).click();
+    expect((await saved).status()).toBe(200);
+    const kept = (await (await page.request.get("/api/produtos/admin", { headers })).json()).find((p: { id: number }) => p.id === legacy.id);
+    expect(kept).toMatchObject({ price: "50", isPublished: false });
+    expect(kept.colors[0]).toMatchObject({ id: legacy.colors[0].id, colorName: "Vermelho", colorValue: "#AA0000", variants: [{ id: legacy.colors[0].variants[0].id, value: "Único", stock: 2 }] });
+
+    // Modo demonstração: cadastrar banner continua bloqueado.
+    await page.evaluate(() => localStorage.clear());
+    await login(page, "USER");
+    const demo = await page.request.post("/api/produtos", { headers: { Authorization: `Bearer ${await token(page)}` }, data: { name: "", price: 0, public: "unissex", categoryId: banner.categoryId, isPublished: false, colors: [] } });
+    expect(demo.status()).toBe(403);
+    expect((await demo.json()).demo).toBe(true);
+  } finally {
+    for (const id of ids) await page.request.delete(`/api/produtos/${id}`, { headers });
+    const after = (await (await page.request.get("/api/produtos/admin", { headers })).json()).map((p: { id: number }) => p.id);
+    expect(after.filter((id: number) => !before.has(id))).toEqual([]);
+  }
+});

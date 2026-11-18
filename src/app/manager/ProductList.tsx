@@ -247,7 +247,8 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
         <div className="min-w-0 flex-1 basis-40">
           {hasProductName(product) ? <h2 className="font-semibold break-words">{product.name}</h2> : <h2 className="font-semibold italic text-muted-foreground">{unnamedProductLabel}</h2>}
           <p className="text-sm text-muted-foreground mt-1">{product.category} · {labels[product.public] ?? product.public}{!product.isPublished && " · Não publicado"}</p>
-          <p className="font-semibold mt-1">{product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+          {product.price > 0 ? <p className="font-semibold mt-1">{product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+            : <p className="mt-1 text-sm italic text-muted-foreground">Sem preço</p>}
         </div>
         <div className="flex-1 min-w-0 basis-44 space-y-2">
           <div className="flex flex-wrap gap-1.5">{product.colors.flatMap(color => color.variants.map(variant => {
