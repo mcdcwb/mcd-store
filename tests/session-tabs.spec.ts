@@ -90,6 +90,8 @@ test("USER opens real product tab, refreshes, shares mutations and logs out ever
   await settled(tab); await cartCount(tab, 1);
   await tab.reload(); await expect(tab.getByRole("button", { name: "Cliente", exact: true })).toBeVisible();
   await tab.goto("/");
+  // O favorito do card é da cor + tamanho selecionado (M, escolhido em add()).
+  await card(tab).getByRole("button", { name: "M", exact: true }).click();
   await expect(card(tab).getByRole("button", { name: "Remover dos favoritos" })).toBeVisible();
   await card(tab).getByRole("button", { name: "Remover dos favoritos" }).click();
   await expect(card(page).getByRole("button", { name: "Favoritar", exact: true })).toBeVisible();
@@ -131,6 +133,7 @@ test("guest merge remains idempotent across tabs and USER A cannot leak into USE
   await settled(page); await cartCount(page, 0); await cartCount(tab, 0);
   await expect(card(page).getByRole("button", { name: "Favoritar", exact: true })).toBeVisible();
   await logout(tab, "other"); await login(tab, "user"); await settled(tab); await cartCount(tab, 1);
+  await card(tab).getByRole("button", { name: "M", exact: true }).click();
   await expect(card(tab).getByRole("button", { name: "Remover dos favoritos" })).toBeVisible();
 });
 
