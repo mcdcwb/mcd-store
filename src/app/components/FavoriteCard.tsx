@@ -2,7 +2,7 @@ import type { MouseEvent } from "react";
 import type { GetAddState } from "../hooks/useAddFeedback";
 import type { FavoriteItem } from "../hooks/useShopping";
 import { formatPrice } from "../lib/presentation";
-import { selectProductColor, stockFor, type Product, type Size } from "../lib/products";
+import { productAlt, productLabel, selectProductColor, stockFor, type Product, type Size } from "../lib/products";
 import { ProductFavoriteButton } from "./ProductFavoriteButton";
 import { ProductImage } from "./ProductImage";
 import type { FavoriteControls } from "./ProductViews";
@@ -48,7 +48,7 @@ export function FavoriteCard({ item, catalog, favorite, onOpen, onAddToCart, add
     <div className="store-product-card bg-card border border-border hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group flex flex-col rounded-b-2xl">
       <div className="store-product-photo relative aspect-[4/5] shrink-0 bg-muted rounded-none">
         <a href={href} onClick={open} className="absolute inset-0 block h-full w-full overflow-hidden">
-          <ProductImage src={saved.imageUrl} alt={saved.name}
+          <ProductImage src={saved.imageUrl} alt={productAlt(saved)}
             className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer ${available ? "" : "opacity-60 grayscale"}`} loading="lazy" />
         </a>
         <ProductFavoriteButton liked onFavorite={() => favorite.onFavorite(...args)}
@@ -57,7 +57,7 @@ export function FavoriteCard({ item, catalog, favorite, onOpen, onAddToCart, add
       <div className="p-3 flex flex-col gap-2 flex-1 rounded-t-2xl rounded-b-[15px] bg-card">
         <div>
           <a href={href} onClick={open} className="text-[17px] font-medium leading-[1.25] text-foreground line-clamp-2 min-h-[2.5rem] break-words hover:text-primary">
-            {saved.name}
+            {productLabel(saved)}
           </a>
           <p className="mt-1 text-lg font-bold leading-tight text-primary">{formatPrice(saved.price)}</p>
         </div>

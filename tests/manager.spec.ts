@@ -667,3 +667,80 @@ test("administrator account forms update session email and never expose password
   await expect(page.locator("body")).not.toContainText("sensitive-current");
   await expect(page.locator("body")).not.toContainText("Sensitive-Next1");
 });
+
+test("unpublished banner can be saved without a name, appears as 'Banner sem nome' and cannot be published unnamed", async ({ page }) => {
+  await login(page);
+  const headers = { Authorization: `Bearer ${await token(page)}` };
+  const publishedMessage = "Informe o nome do produto (mínimo de 3 caracteres) para publicá-lo na loja.";
+  const before = new Set((await (await page.request.get("/api/produtos/admin", { headers })).json()).map((p: { id: number }) => p.id));
+  const ids: number[] = [];
+  try {
+    await page.goto("/manager/produtos/novo");
+    await page.getByLabel("Preço (R$)", { exact: true }).fill("0.01");
+    await page.getByLabel("Categoria", { exact: true }).selectOption({ label: "camisetas" });
+    await page.getByLabel("Nome da cor", { exact: true }).fill("Foto");
+    await page.getByLabel("Valor da cor", { exact: true }).fill("#111111");
+    await page.getByLabel("Imagem principal", { exact: true }).fill("https://placehold.co/1920x420");
+    await page.getByRole("button", { name: "Remover variante 1" }).click();
+    // Publicado (padrão) sem nome: erro de nome obrigatório e nada é enviado.
+    await expect(page.getByText("Obrigatório para produtos publicados na loja (mínimo de 3 caracteres).")).toBeVisible();
+    await page.getByRole("button", { name: "Salvar produto" }).click();
+    await expect(page.getByRole("alert")).toContainText(publishedMessage);
+    // Não publicado: nome opcional.
+    await page.getByRole("checkbox", { name: "Publicado na loja", exact: true }).uncheck();
+    await expect(page.getByText("Opcional para produtos não publicados, como um banner do carrossel.")).toBeVisible();
+    const created = page.waitForResponse(response => response.url().endsWith("/api/produtos") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Salvar produto" }).click();
+    const response = await created;
+    expect(response.status()).toBe(201);
+    const banner = await response.json();
+    ids.push(banner.id);
+    expect(banner).toMatchObject({ name: "", isPublished: false });
+    await expectSuccess(page, "Produto criado com sucesso!");
+
+    // Lista: rótulo "Banner sem nome" em cinza; a busca por "banner" encontra o item.
+    await expect(page).toHaveURL(/\/manager\/produtos$/);
+    await page.getByLabel("Buscar por nome").fill("banner sem");
+    const row = page.getByRole("article", { name: "Banner sem nome", exact: true });
+    await expect(row).toHaveCount(1);
+    const title = row.getByRole("heading", { name: "Banner sem nome", exact: true });
+    await expect(title).toHaveCSS("font-style", "italic");
+    expect(await title.evaluate(node => getComputedStyle(node).color)).not.toBe(await page.locator("h1").first().evaluate(node => getComputedStyle(node).color));
+    await expect(row.getByRole("img", { name: "Banner da MCD Store", exact: true })).toHaveCount(1);
+
+    // Tentar publicar sem nome pelo formulário de edição: erro de nome obrigatório.
+    await row.getByRole("link", { name: /Editar/ }).click();
+    await page.getByRole("checkbox", { name: "Publicado na loja", exact: true }).check();
+    await page.getByRole("button", { name: "Salvar produto" }).click();
+    await expect(page.getByRole("alert")).toContainText(publishedMessage);
+
+    // API: as mesmas regras valem no backend, inclusive em edições parciais.
+    const input = { name: "", price: 0.01, public: "unissex", categoryId: banner.categoryId, isPublished: true, colors: [{ colorName: "Foto", colorValue: "#111111", images: [], variants: [] }] };
+    const rejected = await page.request.post("/api/produtos", { headers, data: input });
+    expect(rejected.status()).toBe(400);
+    expect((await rejected.json()).error).toBe(publishedMessage);
+    expect((await page.request.post("/api/produtos", { headers, data: { ...input, name: "ab" } })).status()).toBe(400);
+    const publishUnnamed = await page.request.put(`/api/produtos/${banner.id}`, { headers, data: { isPublished: true } });
+    expect(publishUnnamed.status()).toBe(400);
+    expect((await publishUnnamed.json()).error).toBe(publishedMessage);
+    const published = await page.request.post("/api/produtos", { headers, data: { ...input, name: "Produto nomeado " + randomUUID() } });
+    expect(published.status()).toBe(201);
+    const publishedId = (await published.json()).id;
+    ids.push(publishedId);
+    expect((await page.request.put(`/api/produtos/${publishedId}`, { headers, data: { name: "  " } })).status()).toBe(400);
+    const renamed = await page.request.put(`/api/produtos/${banner.id}`, { headers, data: { name: "Banner loja", isPublished: true } });
+    expect(renamed.status()).toBe(200);
+    expect(await renamed.json()).toMatchObject({ name: "Banner loja", isPublished: true });
+
+    // Modo demonstração: cadastrar banner sem nome continua bloqueado.
+    await page.evaluate(() => localStorage.clear());
+    await login(page, "USER");
+    const demo = await page.request.post("/api/produtos", { headers: { Authorization: `Bearer ${await token(page)}` }, data: { ...input, isPublished: false } });
+    expect(demo.status()).toBe(403);
+    expect((await demo.json()).demo).toBe(true);
+  } finally {
+    for (const id of ids) await page.request.delete(`/api/produtos/${id}`, { headers });
+    const after = (await (await page.request.get("/api/produtos/admin", { headers })).json()).map((p: { id: number }) => p.id);
+    expect(after.filter((id: number) => !before.has(id))).toEqual([]);
+  }
+});

@@ -126,7 +126,10 @@ export function ProductForm({ product, categories, onSaveCategory, busy, onSave,
       <div className="space-y-6">
         <section className="rounded-xl border border-border bg-card p-5 sm:p-6 space-y-5">
           <h2 className="font-semibold text-lg">Informações do produto</h2>
-          {field("Nome", "name")}
+          <div className="space-y-1.5">
+            {field("Nome", "name")}
+            <p className="text-xs text-muted-foreground">{draft.isPublished ? "Obrigatório para produtos publicados na loja (mínimo de 3 caracteres)." : "Opcional para produtos não publicados, como um banner do carrossel."}</p>
+          </div>
           <label className="block space-y-2 text-sm font-medium">Descrição<textarea className={inputClass} rows={4} value={draft.description} onChange={event => change("description", event.target.value)} /></label>
           <div className="grid gap-4 sm:grid-cols-2">
             {field("Preço (R$)", "price", "number")}

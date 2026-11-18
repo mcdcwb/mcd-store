@@ -1,5 +1,6 @@
 import type { CarouselDisplay } from "../lib/carousel-display.ts";
 import { manualBadgeMaxLength } from "../../../backend/src/lib/manual-badges.ts";
+import { hasPublishableName, publishedNameMessage } from "../../../backend/src/lib/product-name.ts";
 export const audiences = ["masculino", "feminino", "unissex", "infantil"];
 export const labels: Record<string, string> = {
   masculino: "Masculino", feminino: "Feminino", unissex: "Unissex", infantil: "Infantil"
@@ -66,7 +67,8 @@ export function toDraft(product?: ManagedProduct): ProductDraft {
 export function validateDraft(draft: ProductDraft, originalBadge?: string | null): string[] {
   const errors: string[] = [];
   if (draft.badge.length > manualBadgeMaxLength && draft.badge !== originalBadge) errors.push("O badge deve ter no máximo 12 caracteres.");
-  if (draft.name.trim().length < 3) errors.push("O nome deve ter pelo menos 3 caracteres.");
+  // Nome só é obrigatório na loja; não publicado (ex.: banner do carrossel) pode ficar sem nome.
+  if (draft.isPublished && !hasPublishableName(draft.name)) errors.push(publishedNameMessage);
   if (!draft.price.trim() || !Number.isFinite(Number(draft.price)) || Number(draft.price) <= 0) errors.push("Informe um preço maior que zero.");
   if (!draft.public.trim() || !Number.isSafeInteger(Number(draft.categoryId)) || Number(draft.categoryId) <= 0) errors.push("Informe o público e a categoria.");
   if (!normalizeHex(draft.badgeBackgroundColor) || !normalizeHex(draft.badgeTextColor)) errors.push("Informe as cores do badge no formato HEX #RRGGBB.");

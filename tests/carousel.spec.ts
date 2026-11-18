@@ -425,6 +425,27 @@ for (const width of [1440, 390]) test(`slides honor their display mode (Ajustar 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+for (const width of [1440, 390]) test(`unnamed banner slide shows no label and uses a generic alt at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.route("**/carousel-*.svg", svgRoute);
+  const slides = [{ ...fixture(1), name: "", isPublished: false }, fixture(2)];
+  await page.route("**/api/produtos", route => route.fulfill({ json: [fixture(2)] }));
+  await page.route("**/api/produtos/carrossel", route => route.fulfill({ json: slides }));
+  await page.goto("/");
+  const slider = page.getByRole("region", { name: "Carrossel de produtos" });
+  const banner = slider.locator("article").nth(0);
+  await expect(banner.getByRole("img", { name: "Banner da MCD Store", exact: true })).toBeVisible();
+  await expect(banner.locator("h3")).toHaveCount(0);
+  await expect(banner.locator(".bottom-0.z-10")).toHaveCount(0);
+  await expect(slider.locator("article").nth(1).locator("h3")).toHaveText("Carousel 2");
+  await slider.hover();
+  await slider.getByRole("button", { name: "Próximo produto", exact: true }).click();
+  await expect(slider.getByRole("heading")).toHaveText("Carousel 2");
+  await slider.getByRole("button", { name: "Produto anterior", exact: true }).click();
+  await expect(slider.getByRole("heading")).toHaveCount(0);
+  await expect(slider.getByRole("button", { name: "VER MAIS", exact: true })).toHaveCount(0);
+});
+
 test("Manager edits a slide's display with live desktop/mobile previews and saves it", async ({ page }, testInfo) => {
   await loginPanel(page, "ADMIN");
   await page.route("**/carousel-*.svg", svgRoute);

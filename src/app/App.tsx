@@ -15,7 +15,7 @@ import { favoriteKey } from "./hooks/useShopping";
 import { sizeButtonClass } from "./lib/presentation";
 import { Manager } from "./manager/Manager";
 import { CarouselSlideImage } from "./components/CarouselSlideImage";
-import { fetchCarouselProducts, categoryValue, catalogCategories, catalogSizes, isNumericSize, stockFor, type Product, type Size } from "./lib/products";
+import { fetchCarouselProducts, hasProductName, productAlt,categoryValue, catalogCategories, catalogSizes, isNumericSize, stockFor, type Product, type Size } from "./lib/products";
 import { useShopping } from "./hooks/useShopping";
 import { useAuth } from "./hooks/useAuth";
 import { notify, setCartDrawerOpen } from "./lib/notifications";
@@ -575,7 +575,7 @@ export default function App() {
                 {featuredProducts.map((product) => (
                   <article key={product.id} aria-hidden={featuredProducts[activeFeaturedIndex]?.id !== product.id} ref={node => { node?.toggleAttribute("inert", featuredProducts[activeFeaturedIndex]?.id !== product.id); }} className="w-full shrink-0 p-0">
                     <div className="group relative h-72 overflow-hidden rounded-none bg-black sm:h-[420px]">
-                      <CarouselSlideImage src={product.imageUrl} alt={product.name} display={product.carouselDisplay} imageClassName="store-carousel-image" />
+                      <CarouselSlideImage src={product.imageUrl} alt={productAlt(product)} display={product.carouselDisplay} imageClassName="store-carousel-image" />
 
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
                       <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/20" />
@@ -608,13 +608,14 @@ export default function App() {
                         </button>
                       </div>}
 
-                      <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 p-4 sm:p-6">
+                      {/* Banner sem nome: sem rótulo e sem espaço reservado. */}
+                      {hasProductName(product) && <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 p-4 sm:p-6">
                         <div>
                           <h3 className="max-w-[85%] text-base font-semibold text-white sm:text-2xl">
                             {product.name}
                           </h3>
                         </div>
-                      </div>
+                      </div>}
 
                     </div>
                   </article>

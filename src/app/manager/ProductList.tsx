@@ -6,6 +6,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowDown, ArrowUp, ChevronDown, GalleryHorizontalEnd, GripVertical, Info, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { ProductImage } from "../components/ProductImage";
+import { hasProductName, productAlt, productLabel, unnamedProductLabel } from "../lib/products";
 import { CarouselSlideImage } from "../components/CarouselSlideImage";
 import { carouselFitLabels, carouselFocusLabels, carouselImageFits, carouselImageFocuses, type CarouselDisplay } from "../lib/carousel-display";
 import { Button } from "../components/ui/button";
@@ -40,7 +41,7 @@ function CarouselDisplayEditor({ product, busy, onSave }: { product: ManagedProd
   useEffect(() => { setDraft(saved); }, [saved.fit, saved.focus]); // eslint-disable-line react-hooks/exhaustive-deps
   const changed = draft.fit !== saved.fit || draft.focus !== saved.focus;
   const src = product.colors[0]?.imageUrl || product.colors[0]?.images[0];
-  return <div role="group" aria-label={`Exibição de ${product.name}`} className="mt-2 grid gap-4 rounded-lg border border-border bg-background p-3 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+  return <div role="group" aria-label={`Exibição de ${productLabel(product)}`} className="mt-2 grid gap-4 rounded-lg border border-border bg-background p-3 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
     <div className="space-y-3">
       <fieldset>
         <legend className="text-sm font-medium">Modo de exibição</legend>
@@ -74,15 +75,15 @@ function CarouselItemCard({ product, index, total, busy, onUp, onDown, overlay =
     {handle ?? <span aria-hidden="true" className="grid size-9 place-items-center text-muted-foreground"><GripVertical size={18} /></span>}
     <ProductImage src={product.colors[0]?.imageUrl || product.colors[0]?.images[0]} alt="" className="h-12 w-10 shrink-0 rounded object-cover bg-muted" />
     <div className="min-w-0 flex-1">
-      <span className="block break-words text-sm font-medium">{product.name}</span>
-      {onToggle ? <button type="button" aria-expanded={expanded} onClick={onToggle} aria-label={`Exibição de ${product.name}: ${carouselFitLabels[product.carouselDisplay.fit]}`}
+      {hasProductName(product) ? <span className="block break-words text-sm font-medium">{product.name}</span> : <span className="block text-sm font-medium italic text-muted-foreground">{unnamedProductLabel}</span>}
+      {onToggle ? <button type="button" aria-expanded={expanded} onClick={onToggle} aria-label={`Exibição de ${productLabel(product)}: ${carouselFitLabels[product.carouselDisplay.fit]}`}
         className="mt-0.5 inline-flex items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
         Exibição: {carouselFitLabels[product.carouselDisplay.fit]}<ChevronDown aria-hidden="true" size={14} className={`transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`} />
       </button> : <span className="block text-xs text-muted-foreground">Exibição: {carouselFitLabels[product.carouselDisplay.fit]}</span>}
     </div>
     <div className="flex shrink-0 gap-1">
-      <button type="button" aria-label={`Mover ${product.name} para cima`} disabled={busy || index === 0} onClick={onUp} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowUp size={16} /></button>
-      <button type="button" aria-label={`Mover ${product.name} para baixo`} disabled={busy || index === total - 1} onClick={onDown} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowDown size={16} /></button>
+      <button type="button" aria-label={`Mover ${productLabel(product)} para cima`} disabled={busy || index === 0} onClick={onUp} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowUp size={16} /></button>
+      <button type="button" aria-label={`Mover ${productLabel(product)} para baixo`} disabled={busy || index === total - 1} onClick={onDown} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowDown size={16} /></button>
     </div>
   </div>;
 }
@@ -93,7 +94,7 @@ function SortableCarouselItem(props: CarouselItemProps) {
   const [expanded, setExpanded] = useState(false);
   return <li ref={setNodeRef} data-carousel-item={props.product.id} style={{ transform: CSS.Transform.toString(transform), transition }}
     className={isDragging ? "rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 [&>*]:invisible" : undefined}>
-    <CarouselItemCard {...props} handle={<button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Arraste para reordenar ${props.product.name}`}
+    <CarouselItemCard {...props} handle={<button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Arraste para reordenar ${productLabel(props.product)}`}
       className="grid size-9 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted-foreground hover:bg-muted active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
       <GripVertical aria-hidden="true" size={18} />
     </button>} expanded={expanded} onToggle={props.onDisplay ? () => setExpanded(value => !value) : undefined} />
@@ -146,7 +147,7 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
   const currentDraft = draftOrder.filter(id => savedIds.includes(id));
   const displayedOrder = [...currentDraft, ...savedIds.filter(id => !currentDraft.includes(id))];
   const hasOrderChanges = displayedOrder.join(",") !== savedOrder;
-  const productName = (id: UniqueIdentifier) => carouselProducts.find(item => item.id === Number(id))?.name ?? "Produto";
+  const productName = (id: UniqueIdentifier) => { const item = carouselProducts.find(product => product.id === Number(id)); return item ? productLabel(item) : "Produto"; };
   const positionOf = (id: UniqueIdentifier) => displayedOrder.indexOf(Number(id)) + 1;
   const announcements: Announcements = {
     onDragStart: ({ active }) => `${productName(active.id)} selecionado, na posição ${positionOf(active.id)} de ${displayedOrder.length}.`,
@@ -187,7 +188,7 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
   }
   const carouselFull = products.filter(product => product.inCarousel).length >= 5;
   const [deleting, setDeleting] = useState<ManagedProduct | null>(null);
-  const visible = products.filter(product => product.name.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")) &&
+  const visible = products.filter(product => productLabel(product).toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")) &&
     (!category || String(product.categoryId) === category) && (!audience || product.public === audience) && (!publication || product.isPublished === (publication === "published")) && (!onlyCarousel || product.inCarousel) && matchesStock(product, stock, threshold))
     .sort((a, b) => Number(b.inCarousel) - Number(a.inCarousel));
   return <>
@@ -241,10 +242,10 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
     {stock && <div className="flex flex-wrap items-center gap-2 mb-4 text-sm"><span className="rounded-full bg-primary/10 text-primary px-3 py-1">Filtro: {stockFilterLabels[stock]}</span><button type="button" onClick={() => setStock("")} className="min-h-11 px-2 text-primary underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Remover filtro de estoque</button></div>}
     <p className="mb-3 text-sm text-muted-foreground">{visible.length} produto(s)</p>
     <div className="space-y-3">
-      {visible.map(product => <article key={product.id} aria-label={product.name} className={`flex flex-wrap gap-4 rounded-xl border bg-card p-4 sm:p-5 items-center transition-[border-color,box-shadow] duration-200 motion-reduce:transition-none ${product.inCarousel ? "border-primary/80 ring-1 ring-primary/40" : "border-border"}`}>
-        <ProductImage src={product.colors[0]?.imageUrl || product.colors[0]?.images[0]} alt={product.name} className="h-24 w-20 object-cover rounded-lg bg-muted shrink-0" />
+      {visible.map(product => <article key={product.id} aria-label={productLabel(product)} className={`flex flex-wrap gap-4 rounded-xl border bg-card p-4 sm:p-5 items-center transition-[border-color,box-shadow] duration-200 motion-reduce:transition-none ${product.inCarousel ? "border-primary/80 ring-1 ring-primary/40" : "border-border"}`}>
+        <ProductImage src={product.colors[0]?.imageUrl || product.colors[0]?.images[0]} alt={productAlt(product)} className="h-24 w-20 object-cover rounded-lg bg-muted shrink-0" />
         <div className="min-w-0 flex-1 basis-40">
-          <h2 className="font-semibold break-words">{product.name}</h2>
+          {hasProductName(product) ? <h2 className="font-semibold break-words">{product.name}</h2> : <h2 className="font-semibold italic text-muted-foreground">{unnamedProductLabel}</h2>}
           <p className="text-sm text-muted-foreground mt-1">{product.category} · {labels[product.public] ?? product.public}{!product.isPublished && " · Não publicado"}</p>
           <p className="font-semibold mt-1">{product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
         </div>
@@ -275,7 +276,7 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
     </div>
     <AlertDialog open={deleting !== null} onOpenChange={open => { if (!open && !busy) setDeleting(null); }}>
       <AlertDialogContent>
-        <AlertDialogHeader><AlertDialogTitle>Excluir produto?</AlertDialogTitle><AlertDialogDescription>Deseja excluir “{deleting?.name}”? Suas variantes também serão removidas. Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogHeader><AlertDialogTitle>Excluir produto?</AlertDialogTitle><AlertDialogDescription>Deseja excluir “{deleting ? productLabel(deleting) : ""}”? Suas variantes também serão removidas. Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
         {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
         <AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
           <button disabled={busy} className="rounded-lg bg-destructive text-white px-4 py-2 text-sm font-semibold disabled:opacity-50" onClick={async () => { if (deleting && await onDelete(deleting.id)) setDeleting(null); }}>{busy ? "Excluindo..." : "Confirmar exclusão"}</button>

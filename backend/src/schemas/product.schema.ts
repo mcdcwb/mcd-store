@@ -34,7 +34,8 @@ const colorsSchema = z.array(productColorSchema).min(1, "Adicione pelo menos uma
     if (new Set(ids).size !== ids.length) ctx.addIssue({ code: "custom", message: "ID de cor duplicado." });
 });
 export const createProductSchema = z.strictObject({
-    name: z.string().trim().min(3, "O nome deve possuir pelo menos 3 caracteres"),
+    // Pode ser "" quando não publicado; a exigência para publicados fica no service (vale também em edições parciais).
+    name: z.string().trim(),
     description: z.string().optional(), price: z.number().positive("O preço deve ser maior que zero"),
     public: z.string().trim().min(1), categoryId: id, isPublished: z.boolean().optional(),
     badge: manualBadgeTextSchema.nullable().optional(), badgeBackgroundColor: badgeColor.optional(), badgeTextColor: badgeColor.optional(), colors: colorsSchema

@@ -78,6 +78,13 @@ export function adaptProduct(value: unknown): Product {
   };
 }
 
+// Produtos não publicados podem não ter nome (ex.: banner do carrossel com foto da loja).
+export const unnamedProductLabel = "Banner sem nome";
+export const unnamedProductAlt = "Banner da MCD Store";
+export const hasProductName = (product: { name: string }) => product.name.trim().length > 0;
+export const productLabel = (product: { name: string }) => hasProductName(product) ? product.name : unnamedProductLabel;
+export const productAlt = (product: { name: string }) => hasProductName(product) ? product.name : unnamedProductAlt;
+
 export const stockFor = (product: Product, size: string) => product.variants.find(v => v.value === size)?.stock ?? 0;
 
 export const isNumericSize = (size: string) => /^\d+$/.test(size);
