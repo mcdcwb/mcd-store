@@ -4,6 +4,9 @@ export const manualBadgeTextSchema = z.string().max(manualBadgeMaxLength, "O bad
 const badgeColor = z.string().trim().regex(/^#[0-9a-f]{6}$/i, "Informe HEX #RRGGBB para o badge.").transform(v => v.toUpperCase());
 const id = z.number().int().positive().max(2147483647);
 export const carouselSchema = z.strictObject({ inCarousel: z.boolean() });
+export const carouselImageFits = ["CONTAIN", "COVER"] as const;
+export const carouselImageFocuses = ["CENTER", "TOP", "BOTTOM", "LEFT", "RIGHT"] as const;
+export const carouselDisplaySchema = z.strictObject({ fit: z.enum(carouselImageFits), focus: z.enum(carouselImageFocuses) });
 export const carouselOrderSchema = z.strictObject({
     productIds: z.array(id).min(1).max(5).refine(ids => new Set(ids).size === ids.length, "Produtos duplicados na ordem do carrossel.")
 });

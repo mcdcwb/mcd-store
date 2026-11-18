@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 import { expectSuccess, successToasts } from "./toast-helpers";
 
 const fixture = (id: number, inCarousel = true) => ({
@@ -387,5 +387,135 @@ test("Manager persists carousel selection, combines filters, prioritizes stably 
     await expect(page.getByRole("region", { name: "Carrossel de produtos" }).locator("article")).toHaveCount(3);
   } finally {
     for (const id of ids) await page.request.delete(`/api/produtos/${id}`, { headers });
+  }
+});
+
+const svgRoute = (route: Route) => route.fulfill({ contentType: "image/svg+xml", body: `<svg xmlns="http://www.w3.org/2000/svg" width="${route.request().url().includes("portrait") ? 400 : 1600}" height="${route.request().url().includes("portrait") ? 500 : 900}"><rect width="100%" height="100%" fill="#555"/></svg>` });
+async function loginPanel(page: Page, role: "ADMIN" | "USER") {
+  await page.goto("/manager");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await page.getByLabel("E-mail", { exact: true }).fill(process.env[role === "ADMIN" ? "E2E_ADMIN_EMAIL" : "E2E_USER_EMAIL"]!);
+  await page.getByLabel("Senha", { exact: true }).fill(process.env[role === "ADMIN" ? "E2E_ADMIN_PASSWORD" : "E2E_USER_PASSWORD"]!);
+  await page.locator('form button[type="submit"]').click();
+  if (role === "ADMIN") await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  else await expect(page.getByRole("note").filter({ hasText: "Modo demonstração" })).toBeVisible();
+  return page.evaluate(() => JSON.parse(localStorage.getItem("mcd-store_auth_v1")!).accessToken as string);
+}
+const managed = (id: number, display?: { carouselImageFit: string; carouselImageFocus: string }) => ({
+  ...fixture(id), category: { id: 1, name: "camisetas" }, categoryId: 1, isPublished: true, carouselPosition: id - 1, ...display
+});
+
+for (const width of [1440, 390]) test(`slides honor their display mode (Ajustar default, Preencher with focus) at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.route("**/carousel-*.svg", svgRoute);
+  // Slide 1 sem os campos (resposta antiga) => Ajustar; slide 2 em Preencher com foco no topo.
+  const slides = [fixture(1), { ...fixture(2), carouselImageFit: "COVER", carouselImageFocus: "TOP" }];
+  await page.route("**/api/produtos", route => route.fulfill({ json: slides }));
+  await page.route("**/api/produtos/carrossel", route => route.fulfill({ json: slides }));
+  await page.goto("/");
+  const slider = page.getByRole("region", { name: "Carrossel de produtos" });
+  const first = slider.locator("article").nth(0), second = slider.locator("article").nth(1);
+  await expect(first.getByRole("img", { name: "Carousel 1", exact: true })).toHaveCSS("object-fit", "contain");
+  await expect(first.locator('img[aria-hidden="true"]')).toHaveCSS("filter", /blur/);
+  const cover = second.getByRole("img", { name: "Carousel 2", exact: true, includeHidden: true });
+  await expect(cover).toHaveCSS("object-fit", "cover");
+  await expect(cover).toHaveCSS("object-position", "50% 0%");
+  await expect(cover).toHaveCSS("height", width >= 640 ? "420px" : "288px");
+  await expect(second.locator('img[aria-hidden="true"]')).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("Manager edits a slide's display with live desktop/mobile previews and saves it", async ({ page }, testInfo) => {
+  await loginPanel(page, "ADMIN");
+  await page.route("**/carousel-*.svg", svgRoute);
+  let products = [managed(1), managed(2, { carouselImageFit: "COVER", carouselImageFocus: "LEFT" })];
+  const saved: unknown[] = [];
+  await page.route("**/api/produtos/admin", route => route.fulfill({ json: products }));
+  await page.route("**/api/produtos/*/carrossel/exibicao", async route => {
+    const body = route.request().postDataJSON();
+    saved.push(body);
+    const id = Number(route.request().url().match(/produtos\/(\d+)\//)![1]);
+    products = products.map(p => p.id === id ? { ...p, carouselImageFit: body.fit, carouselImageFocus: body.focus } : p);
+    await route.fulfill({ json: products.find(p => p.id === id) });
+  });
+  await page.goto("/manager/produtos");
+  const section = page.locator('section[aria-labelledby="carousel-order-title"]');
+  await expect(section.getByRole("button", { name: "Exibição de Carousel 2: Preencher" })).toBeVisible();
+  const toggle = section.getByRole("button", { name: "Exibição de Carousel 1: Ajustar" });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const editor = section.getByRole("group", { name: "Exibição de Carousel 1" });
+  const desktop = editor.locator('[data-preview^="Desktop"]'), mobile = editor.locator('[data-preview^="Celular"]');
+  await expect(editor.getByRole("radio", { name: /Ajustar/ })).toBeChecked();
+  await expect(editor.getByLabel("Ponto de foco")).toHaveCount(0);
+  await expect(editor.getByRole("button", { name: "Salvar exibição" })).toBeDisabled();
+  for (const [preview, ratio] of [[desktop, 1920 / 420], [mobile, 390 / 288]] as const) {
+    const box = (await preview.boundingBox())!;
+    expect(Math.abs(box.width / box.height - ratio)).toBeLessThan(0.05);
+    await expect(preview.locator('img[data-carousel-fit="CONTAIN"]')).toHaveCSS("object-fit", "contain");
+    await expect(preview.locator('img[aria-hidden="true"]')).toHaveCSS("filter", /blur/);
+  }
+  await editor.getByRole("radio", { name: /Preencher/ }).check();
+  await editor.getByLabel("Ponto de foco").selectOption({ label: "Base" });
+  for (const preview of [desktop, mobile]) {
+    await expect(preview.locator("img")).toHaveCount(1);
+    await expect(preview.locator("img")).toHaveCSS("object-fit", "cover");
+    await expect(preview.locator("img")).toHaveCSS("object-position", "50% 100%");
+  }
+  await page.screenshot({ path: testInfo.outputPath("carousel-display-editor.png"), fullPage: true });
+  await editor.getByRole("button", { name: "Descartar" }).click();
+  await expect(editor.getByRole("radio", { name: /Ajustar/ })).toBeChecked();
+  await editor.getByRole("radio", { name: /Preencher/ }).check();
+  await editor.getByLabel("Ponto de foco").selectOption({ label: "Direita" });
+  await editor.getByRole("button", { name: "Salvar exibição" }).click();
+  await expectSuccess(page, "Exibição do slide salva!", "positive");
+  expect(saved).toEqual([{ fit: "COVER", focus: "RIGHT" }]);
+  await expect(section.getByRole("button", { name: "Exibição de Carousel 1: Preencher" })).toBeVisible();
+  await expect(editor.getByRole("button", { name: "Salvar exibição" })).toBeDisabled();
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
+
+test("display endpoint validates input, persists for ADMIN and is read-only in demo mode", async ({ page }) => {
+  const adminToken = await loginPanel(page, "ADMIN");
+  const admin = { Authorization: `Bearer ${adminToken}` };
+  const [target] = await page.request.get("/api/produtos/admin", { headers: admin }).then(r => r.json());
+  test.skip(!target, "Sem produtos no banco de teste.");
+  expect(target.carouselImageFit).toBe("CONTAIN");
+  expect(target.carouselImageFocus).toBe("CENTER");
+  const url = `/api/produtos/${target.id}/carrossel/exibicao`;
+  try {
+    expect((await page.request.patch(url, { headers: admin, data: { fit: "STRETCH", focus: "CENTER" } })).status()).toBe(400);
+    expect((await page.request.patch(url, { headers: admin, data: { fit: "COVER", focus: "TOP", extra: 1 } })).status()).toBe(400);
+    expect((await page.request.patch("/api/produtos/2147483647/carrossel/exibicao", { headers: admin, data: { fit: "COVER", focus: "TOP" } })).status()).toBe(404);
+    const ok = await page.request.patch(url, { headers: admin, data: { fit: "COVER", focus: "BOTTOM" } });
+    expect(ok.status()).toBe(200);
+    expect(await ok.json()).toMatchObject({ id: target.id, carouselImageFit: "COVER", carouselImageFocus: "BOTTOM", inCarousel: target.inCarousel, carouselPosition: target.carouselPosition });
+
+    // Modo demonstração: as opções aparecem, mas salvar é bloqueado como o resto do painel.
+    await page.evaluate(() => localStorage.clear());
+    const userToken = await loginPanel(page, "USER");
+    const blocked = await page.request.patch(url, { headers: { Authorization: `Bearer ${userToken}` }, data: { fit: "CONTAIN", focus: "CENTER" } });
+    expect(blocked.status()).toBe(403);
+    expect((await blocked.json()).demo).toBe(true);
+    await page.route("**/carousel-*.svg", svgRoute);
+    await page.route("**/api/produtos/admin", route => route.fulfill({ json: [managed(1)] }));
+    await page.goto("/manager/produtos");
+    const section = page.locator('section[aria-labelledby="carousel-order-title"]');
+    await section.getByRole("button", { name: "Exibição de Carousel 1: Ajustar" }).click();
+    const editor = section.getByRole("group", { name: "Exibição de Carousel 1" });
+    await editor.getByRole("radio", { name: /Preencher/ }).check();
+    await expect(editor.locator('[data-preview^="Desktop"] img')).toHaveCSS("object-fit", "cover");
+    await editor.getByRole("button", { name: "Salvar exibição" }).click();
+    await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Modo demonstração: alterações não são salvas." })).toHaveCount(1);
+    await expect(page.locator('[data-sonner-toast][data-type="error"]')).toHaveCount(0);
+    await expect(successToasts(page)).toHaveCount(0);
+    await expect(section.getByRole("button", { name: "Exibição de Carousel 1: Ajustar" })).toBeVisible();
+    const after = await page.request.get("/api/produtos/admin", { headers: admin }).then(r => r.json());
+    expect(after.find((p: { id: number }) => p.id === target.id)).toMatchObject({ carouselImageFit: "COVER", carouselImageFocus: "BOTTOM" });
+  } finally {
+    await page.request.patch(url, { headers: admin, data: { fit: "CONTAIN", focus: "CENTER" } });
   }
 });

@@ -4,8 +4,10 @@ import { Link, useSearchParams } from "react-router";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type Announcements, type DragEndEvent, type Modifier, type UniqueIdentifier } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDown, ArrowUp, GalleryHorizontalEnd, GripVertical, Info, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, GalleryHorizontalEnd, GripVertical, Info, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { ProductImage } from "../components/ProductImage";
+import { CarouselSlideImage } from "../components/CarouselSlideImage";
+import { carouselFitLabels, carouselFocusLabels, carouselImageFits, carouselImageFocuses, type CarouselDisplay } from "../lib/carousel-display";
 import { Button } from "../components/ui/button";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "../components/ui/alert-dialog";
 import { isLowStock, isEmptyVariant, labels, matchesStock, stockFilterLabels, getProductVariants, isProductOutOfStock, totalStock, type ManagedProduct, type StockFilter } from "./products";
@@ -18,14 +20,66 @@ export function StockBadge({ product }: { product: ManagedProduct }) {
 // A lista do carrossel só se move na vertical.
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
 
-type CarouselItemProps = { product: ManagedProduct; index: number; total: number; busy: boolean; onUp?: () => void; onDown?: () => void };
+type CarouselItemProps = { product: ManagedProduct; index: number; total: number; busy: boolean; onUp?: () => void; onDown?: () => void; onDisplay?: (display: CarouselDisplay) => Promise<boolean> };
+const fitHints: Record<CarouselDisplay["fit"], string> = { CONTAIN: "Imagem inteira, com fundo desfocado.", COVER: "Ocupa todo o slide; as bordas podem ser cortadas." };
+// Miniatura com a mesma estrutura do slide real (imagem + degradê), na proporção indicada.
+function SlidePreview({ label, ratio, className, src, display }: { label: string; ratio: string; className: string; src?: string; display: CarouselDisplay }) {
+  return <figure className={className}>
+    <div data-preview={label} className="relative overflow-hidden rounded-md border border-border bg-black" style={{ aspectRatio: ratio }}>
+      <CarouselSlideImage src={src} alt="" display={display} />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+    </div>
+    <figcaption className="mt-1 text-xs text-muted-foreground">{label}</figcaption>
+  </figure>;
+}
+// Opções de exibição de um slide. O rascunho atualiza as miniaturas na hora; o banco só muda em "Salvar exibição".
+function CarouselDisplayEditor({ product, busy, onSave }: { product: ManagedProduct; busy: boolean; onSave: (display: CarouselDisplay) => Promise<boolean> }) {
+  const saved = product.carouselDisplay;
+  const [draft, setDraft] = useState(saved);
+  const name = useId();
+  useEffect(() => { setDraft(saved); }, [saved.fit, saved.focus]); // eslint-disable-line react-hooks/exhaustive-deps
+  const changed = draft.fit !== saved.fit || draft.focus !== saved.focus;
+  const src = product.colors[0]?.imageUrl || product.colors[0]?.images[0];
+  return <div role="group" aria-label={`Exibição de ${product.name}`} className="mt-2 grid gap-4 rounded-lg border border-border bg-background p-3 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+    <div className="space-y-3">
+      <fieldset>
+        <legend className="text-sm font-medium">Modo de exibição</legend>
+        <div className="mt-2 space-y-2">
+          {carouselImageFits.map(fit => <label key={fit} className="flex cursor-pointer items-start gap-2 text-sm">
+            <input type="radio" name={name} value={fit} checked={draft.fit === fit} onChange={() => setDraft(current => ({ ...current, fit }))} className="mt-0.5 size-4 accent-primary" />
+            <span><span className="font-medium">{carouselFitLabels[fit]}</span><span className="block text-xs text-muted-foreground">{fitHints[fit]}</span></span>
+          </label>)}
+        </div>
+      </fieldset>
+      {draft.fit === "COVER" && <label className="flex flex-col gap-1.5 text-sm"><span className="font-medium">Ponto de foco</span>
+        <select value={draft.focus} onChange={event => setDraft(current => ({ ...current, focus: event.target.value as CarouselDisplay["focus"] }))} className="h-10 w-full rounded-lg border border-border bg-background px-3 py-2">
+          {carouselImageFocuses.map(focus => <option key={focus} value={focus}>{carouselFocusLabels[focus]}</option>)}
+        </select>
+      </label>}
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" disabled={busy || !changed} onClick={() => onSave(draft)}>Salvar exibição</Button>
+        {changed && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setDraft(saved)}>Descartar</Button>}
+      </div>
+    </div>
+    <div aria-label="Pré-visualização" role="group" className="flex min-w-0 flex-wrap items-end gap-3">
+      <SlidePreview label="Desktop (1920 × 420)" ratio="1920 / 420" className="min-w-0 flex-[1_1_14rem]" src={src} display={draft} />
+      <SlidePreview label="Celular (390 × 288)" ratio="390 / 288" className="w-32 shrink-0" src={src} display={draft} />
+    </div>
+  </div>;
+}
 // Conteúdo do item (usado na lista e no card flutuante do DragOverlay).
-function CarouselItemCard({ product, index, total, busy, onUp, onDown, overlay = false, handle }: CarouselItemProps & { overlay?: boolean; handle?: React.ReactNode }) {
+function CarouselItemCard({ product, index, total, busy, onUp, onDown, overlay = false, handle, expanded, onToggle }: CarouselItemProps & { overlay?: boolean; handle?: React.ReactNode; expanded?: boolean; onToggle?: () => void }) {
   return <div className={`flex min-w-0 items-center gap-3 rounded-lg border bg-background p-2.5 ${overlay ? "cursor-grabbing border-primary shadow-lg ring-2 ring-primary/30" : "border-border"}`}>
     <span aria-label={`Posição ${index + 1}`} className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{index + 1}</span>
     {handle ?? <span aria-hidden="true" className="grid size-9 place-items-center text-muted-foreground"><GripVertical size={18} /></span>}
     <ProductImage src={product.colors[0]?.imageUrl || product.colors[0]?.images[0]} alt="" className="h-12 w-10 shrink-0 rounded object-cover bg-muted" />
-    <span className="min-w-0 flex-1 break-words text-sm font-medium">{product.name}</span>
+    <div className="min-w-0 flex-1">
+      <span className="block break-words text-sm font-medium">{product.name}</span>
+      {onToggle ? <button type="button" aria-expanded={expanded} onClick={onToggle} aria-label={`Exibição de ${product.name}: ${carouselFitLabels[product.carouselDisplay.fit]}`}
+        className="mt-0.5 inline-flex items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        Exibição: {carouselFitLabels[product.carouselDisplay.fit]}<ChevronDown aria-hidden="true" size={14} className={`transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`} />
+      </button> : <span className="block text-xs text-muted-foreground">Exibição: {carouselFitLabels[product.carouselDisplay.fit]}</span>}
+    </div>
     <div className="flex shrink-0 gap-1">
       <button type="button" aria-label={`Mover ${product.name} para cima`} disabled={busy || index === 0} onClick={onUp} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowUp size={16} /></button>
       <button type="button" aria-label={`Mover ${product.name} para baixo`} disabled={busy || index === total - 1} onClick={onDown} className="grid size-9 place-items-center rounded-md border border-border hover:bg-muted disabled:opacity-40"><ArrowDown size={16} /></button>
@@ -36,16 +90,18 @@ function CarouselItemCard({ product, index, total, busy, onUp, onDown, overlay =
 // um marcador tracejado (placeholder) e os demais itens deslizam com a transição do dnd-kit.
 function SortableCarouselItem(props: CarouselItemProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: props.product.id, attributes: { roleDescription: "item reordenável" } });
+  const [expanded, setExpanded] = useState(false);
   return <li ref={setNodeRef} data-carousel-item={props.product.id} style={{ transform: CSS.Transform.toString(transform), transition }}
     className={isDragging ? "rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 [&>*]:invisible" : undefined}>
     <CarouselItemCard {...props} handle={<button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Arraste para reordenar ${props.product.name}`}
       className="grid size-9 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted-foreground hover:bg-muted active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
       <GripVertical aria-hidden="true" size={18} />
-    </button>} />
+    </button>} expanded={expanded} onToggle={props.onDisplay ? () => setExpanded(value => !value) : undefined} />
+    {expanded && props.onDisplay && <CarouselDisplayEditor product={props.product} busy={props.busy} onSave={props.onDisplay} />}
   </li>;
 }
 
-export function ProductList({ categories, threshold, products, busy, error, onDelete, onCarousel, onCarouselOrder }: { categories: Category[]; threshold: number; products: ManagedProduct[]; busy: boolean; error: string | null; onDelete: (id: number) => Promise<boolean>; onCarousel: (id: number, selected: boolean) => Promise<boolean>; onCarouselOrder: (productIds: number[]) => Promise<boolean> }) {
+export function ProductList({ categories, threshold, products, busy, error, onDelete, onCarousel, onCarouselOrder, onCarouselDisplay }: { categories: Category[]; threshold: number; products: ManagedProduct[]; busy: boolean; error: string | null; onDelete: (id: number) => Promise<boolean>; onCarousel: (id: number, selected: boolean) => Promise<boolean>; onCarouselOrder: (productIds: number[]) => Promise<boolean>; onCarouselDisplay: (id: number, display: CarouselDisplay) => Promise<boolean> }) {
   const [params, setParams] = useSearchParams();
   const publicationHelpId = useId();
   const [search, setSearch] = useState("");
@@ -141,7 +197,7 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
     </div>
     {carouselProducts.length > 0 && <section aria-labelledby="carousel-order-title" className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 id="carousel-order-title" className="text-lg font-semibold">Ordem do carrossel</h2><p className="mt-1 text-sm text-muted-foreground">Arraste os produtos para reorganizar. Use os botões de seta para ajustar a posição.</p></div>
+        <div><h2 id="carousel-order-title" className="text-lg font-semibold">Ordem do carrossel</h2><p className="mt-1 text-sm text-muted-foreground">Arraste os produtos para reorganizar. Use os botões de seta para ajustar a posição e "Exibição" para escolher como a imagem aparece.</p></div>
         {hasOrderChanges && <div className="flex flex-wrap items-center gap-2">
           <span role="status" className="text-sm font-medium text-amber-700">Ordem alterada, ainda não salva</span>
           <Button type="button" disabled={busy} className="ring-2 ring-amber-400 ring-offset-2 ring-offset-card" onClick={async () => {
@@ -158,7 +214,7 @@ export function ProductList({ categories, threshold, products, busy, error, onDe
               const product = carouselProducts.find(item => item.id === id);
               if (!product) return null;
               return <SortableCarouselItem key={product.id} product={product} index={index} total={displayedOrder.length} busy={busy}
-                onUp={() => moveCarouselItem(product.id, displayedOrder[index - 1]!)} onDown={() => moveCarouselItem(product.id, displayedOrder[index + 1]!)} />;
+                onUp={() => moveCarouselItem(product.id, displayedOrder[index - 1]!)} onDown={() => moveCarouselItem(product.id, displayedOrder[index + 1]!)} onDisplay={display => onCarouselDisplay(product.id, display)} />;
             })}
           </ol>
         </SortableContext>

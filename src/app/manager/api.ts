@@ -2,6 +2,7 @@ import { adaptCategories, type Category } from "../lib/categories.ts";
 import { DemoBlockedError, throwIfDemoBlocked } from "../lib/demo.ts";
 import { adaptProduct } from "../lib/products.ts";
 import type { ManagedProduct, ProductInput } from "./products.ts";
+import type { CarouselDisplay } from "../lib/carousel-display.ts";
 import { orderQueryString, type CancellableOrderStatus, type OrderQuery, type OrderPage, type OrderDetails, type StockConflict, type OrderSummary } from "./orders.ts";
 
 export class ManagerApiError extends Error {
@@ -13,7 +14,7 @@ function normalize(value: unknown): ManagedProduct {
   const product = adaptProduct(value);
   const raw = value as Record<string, unknown>;
   return { id: product.id, name: product.name, description: product.description, price: product.price, public: product.public,
-    category: product.category, categoryId: product.categoryId!, isPublished: product.isPublished, badge: product.badge ?? null, badgeBackgroundColor: product.badgeBackgroundColor, badgeTextColor: product.badgeTextColor, inCarousel: product.inCarousel, carouselPosition: product.carouselPosition ?? 0,
+    category: product.category, categoryId: product.categoryId!, isPublished: product.isPublished, badge: product.badge ?? null, badgeBackgroundColor: product.badgeBackgroundColor, badgeTextColor: product.badgeTextColor, inCarousel: product.inCarousel, carouselPosition: product.carouselPosition ?? 0, carouselDisplay: product.carouselDisplay,
     colors: (raw.colors as Array<Record<string, unknown>>).map((color, i) => ({
       ...product.colors[i], imageUrl: typeof color.imageUrl === "string" ? color.imageUrl : "", images: color.images as string[]
     }))
@@ -104,6 +105,7 @@ export function createManagerApi(token: string, baseUrl = "/api", fetcher: typeo
     async save(input: ProductInput, id?: number) { return normalize(await request(id === undefined ? "" : `/${id}`, id === undefined ? "POST" : "PUT", input)); },
     async remove(id: number) { await request(`/${id}`, "DELETE"); },
     async setCarousel(id: number, inCarousel: boolean) { return normalize(await request(`/${id}/carrossel`, "PATCH", { inCarousel })); },
+    async setCarouselDisplay(id: number, display: CarouselDisplay) { return normalize(await request(`/${id}/carrossel/exibicao`, "PATCH", display)); },
     async setCarouselOrder(productIds: number[]) {
       const data = await request("/carrossel/ordem", "PATCH", { productIds });
       if (!Array.isArray(data)) throw new ManagerApiError(0, "Resposta inválida da ordem do carrossel.");

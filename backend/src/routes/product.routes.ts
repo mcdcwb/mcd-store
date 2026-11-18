@@ -5,6 +5,7 @@ import {
     getCarouselProducts,
     setProductCarousel,
     setCarouselOrder,
+    setCarouselDisplay,
     createProduct,
     updateProduct,
     deleteProduct
@@ -22,6 +23,7 @@ router.get("/admin", getAdminProducts);
 router.patch("/carrossel/ordem", setCarouselOrder);
 router.post("/", createProduct);
 router.patch("/:id/carrossel", setProductCarousel);
+router.patch("/:id/carrossel/exibicao", setCarouselDisplay);
 router.put("/:id", updateProduct);
 router.delete("/:id", deleteProduct);
 

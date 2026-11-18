@@ -6,7 +6,6 @@ import { clearCheckoutDraft } from "./lib/checkout";
 import { sortCatalog, toggleCatalogSort, type CatalogSort } from "./lib/catalog-sort";
 import { Fragment, useState, useEffect, useRef, useMemo } from "react";
 import { useProducts } from "./hooks/useProducts";
-import { ProductImage } from "./components/ProductImage";
 import { AuthModal } from "./components/AuthModal";
 import { CartDrawer } from "./components/CartDrawer";
 import { StoreFooter } from "./components/StoreFooter";
@@ -15,6 +14,7 @@ import { FavoriteCard } from "./components/FavoriteCard";
 import { favoriteKey } from "./hooks/useShopping";
 import { sizeButtonClass } from "./lib/presentation";
 import { Manager } from "./manager/Manager";
+import { CarouselSlideImage } from "./components/CarouselSlideImage";
 import { fetchCarouselProducts, categoryValue, catalogCategories, catalogSizes, isNumericSize, stockFor, type Product, type Size } from "./lib/products";
 import { useShopping } from "./hooks/useShopping";
 import { useAuth } from "./hooks/useAuth";
@@ -575,17 +575,7 @@ export default function App() {
                 {featuredProducts.map((product) => (
                   <article key={product.id} aria-hidden={featuredProducts[activeFeaturedIndex]?.id !== product.id} ref={node => { node?.toggleAttribute("inert", featuredProducts[activeFeaturedIndex]?.id !== product.id); }} className="w-full shrink-0 p-0">
                     <div className="group relative h-72 overflow-hidden rounded-none bg-black sm:h-[420px]">
-                      <ProductImage
-                        src={product.imageUrl}
-                        alt=""
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover blur-xl brightness-75"
-                      />
-                      <ProductImage
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="store-carousel-image relative h-full w-full object-contain"
-                      />
+                      <CarouselSlideImage src={product.imageUrl} alt={product.name} display={product.carouselDisplay} imageClassName="store-carousel-image" />
 
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
                       <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/20" />

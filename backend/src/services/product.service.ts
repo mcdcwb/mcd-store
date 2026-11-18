@@ -63,6 +63,12 @@ export async function setProductCarousel(id: number, inCarousel: boolean) {
         return updated;
     }, { isolationLevel: "ReadCommitted" });
 }
+// Só altera a aparência do slide; não mexe na seleção nem na ordem (sem o lock do carrossel).
+export async function setCarouselDisplay(id: number, display: { fit: "CONTAIN" | "COVER"; focus: "CENTER" | "TOP" | "BOTTOM" | "LEFT" | "RIGHT" }) {
+    const result = await prisma.product.updateMany({ where: { id }, data: { carouselImageFit: display.fit, carouselImageFocus: display.focus } });
+    if (!result.count) throw new ProductError(404, "Produto não encontrado.");
+    return prisma.product.findUniqueOrThrow({ where: { id }, include: productInclude });
+}
 export async function setCarouselOrder(productIds: number[]) {
     return prisma.$transaction(async tx => {
         await lockCarouselSelection(tx);

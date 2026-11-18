@@ -4,6 +4,7 @@ import { notify } from "../lib/notifications";
 import { createManagerApi, ManagerApiError } from "./api";
 import type { ManagedProduct, ProductInput } from "./products";
 import type { Category } from "../lib/categories";
+import type { CarouselDisplay } from "../lib/carousel-display";
 
 export function useManagerProducts(token: string, onUnauthorized: (message: string) => void, onChanged: () => void) {
   const api = useMemo(() => createManagerApi(token, import.meta.env.VITE_API_URL || "/api"), [token]);
@@ -97,6 +98,12 @@ export function useManagerProducts(token: string, onUnauthorized: (message: stri
     if (inCarousel) notify.change("Produto adicionado ao carrossel!");
     else notify.removal("Produto removido do carrossel!");
   }, true);
+  const setCarouselDisplay = (id: number, display: CarouselDisplay) => mutate(async () => {
+    const product = await api.setCarouselDisplay(id, display);
+    if (!mounted.current) return;
+    setProducts(previous => previous.map(p => p.id === id ? { ...p, carouselDisplay: product.carouselDisplay } : p));
+    notify.positive("Exibição do slide salva!");
+  }, true);
   const setCarouselOrder = (productIds: number[]) => mutate(async () => {
     const ordered = await api.setCarouselOrder(productIds);
     if (!mounted.current) return;
@@ -124,5 +131,5 @@ export function useManagerProducts(token: string, onUnauthorized: (message: stri
     setCategories(previous => previous.filter(c => c.id !== id));
     notify.removal("Categoria excluída com sucesso!");
   }, false, true);
-  return { upload, products, categories, saveCategory, removeCategory, loading, loaded, busy, error, save, remove, setCarousel, setCarouselOrder, reload: () => setRevision(value => value + 1) };
+  return { upload, products, categories, saveCategory, removeCategory, loading, loaded, busy, error, save, remove, setCarousel, setCarouselDisplay, setCarouselOrder, reload: () => setRevision(value => value + 1) };
 }

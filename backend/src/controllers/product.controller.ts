@@ -5,6 +5,7 @@ import {
     createProductSchema,
     carouselSchema,
     carouselOrderSchema,
+    carouselDisplaySchema,
     updateProductSchema
 } from "../schemas/product.schema.js";
 
@@ -15,6 +16,19 @@ export async function setProductCarousel(req: Request, res: Response, next: Next
     if (!result.success) return res.status(400).json({ error: "Informe se o produto pertence ao carrossel." });
     try {
         return res.json(await productService.setProductCarousel(id, result.data.inCarousel));
+    } catch (error) {
+        if (error instanceof productService.ProductError) return res.status(error.status).json({ error: error.message });
+        return next(error);
+    }
+}
+
+export async function setCarouselDisplay(req: Request, res: Response, next: NextFunction) {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) return res.status(400).json({ error: "ID inválido." });
+    const result = carouselDisplaySchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: "Informe um modo de exibição e um ponto de foco válidos." });
+    try {
+        return res.json(await productService.setCarouselDisplay(id, result.data));
     } catch (error) {
         if (error instanceof productService.ProductError) return res.status(error.status).json({ error: error.message });
         return next(error);

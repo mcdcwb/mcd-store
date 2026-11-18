@@ -39,6 +39,9 @@ model Product {
   badge       String?
   inCarousel  Boolean @default(false)
   carouselPosition Int @default(0)
+  // Exibição da imagem no slide: CONTAIN = imagem inteira com fundo desfocado (padrão); COVER = preenche o slide.
+  carouselImageFit   CarouselImageFit   @default(CONTAIN)
+  carouselImageFocus CarouselImageFocus @default(CENTER)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -47,6 +50,19 @@ model Product {
   favorites Favorite[]
   adminFavorites AdminFavorite[]
   @@index([categoryId])
+}
+
+enum CarouselImageFit {
+  CONTAIN
+  COVER
+}
+
+enum CarouselImageFocus {
+  CENTER
+  TOP
+  BOTTOM
+  LEFT
+  RIGHT
 }
 
 model Category {
