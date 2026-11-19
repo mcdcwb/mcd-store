@@ -126,7 +126,7 @@ test("ADMIN favorites persist, synchronize, isolate USER, and release pending/co
     await page.clock.pauseAt(new Date());
     release(); await expect(button).toHaveAttribute("aria-pressed", "true");
     await button.hover();
-    await expect(page.getByRole("tooltip", { name: "Desfavoritar" })).toBeVisible();
+    await expect(page.getByRole("tooltip", { name: "Nos favoritos" })).toBeVisible();
     await expect(button).toHaveAttribute("aria-busy", "false"); await expect(button).toHaveCSS("cursor", "not-allowed");
     await page.clock.runFor(1000); // fim do cooldown (o toast, que também usa temporizadores, dura mais que isso)
     await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Produto adicionado aos favoritos!" })).toHaveCount(1);
