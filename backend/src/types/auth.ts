@@ -10,4 +10,6 @@ export interface Account {
 export interface TokenIdentity {
     id: number;
     role: AccountRole;
+    // "iat" do JWT, em segundos: o cliente recusa token emitido antes da última troca de senha.
+    issuedAt?: number;
 }

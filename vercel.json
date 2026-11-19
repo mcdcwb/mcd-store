@@ -2,6 +2,9 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "headers": [
+    { "source": "/redefinir-senha", "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }] }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]

@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { updateAccountSchema, changePasswordSchema } from "../schemas/account.schema.js";
 import * as service from "../services/account.service.js";
 import { EmailInUseError } from "../lib/account-registration.js";
+import { session } from "../services/auth.service.js";
 
 export async function getProfile(_req: Request, res: Response) {
     const profile = await service.getProfile(res.locals.account.id);
@@ -21,16 +22,17 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
 // ficam em service.replacePassword. Toda recusa é 400, então o rate limit das rotas (que só ignora
 // respostas de sucesso) conta também a tentativa com a nova senha igual à atual.
 export const SAME_PASSWORD_MESSAGE = "A nova senha precisa ser diferente da senha atual.";
-async function respondPasswordChange(req: Request, res: Response, change: typeof service.changePassword) {
+async function respondPasswordChange(req: Request, res: Response, change: typeof service.changePassword, renew = false) {
     const result = changePasswordSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ error: "A nova senha deve ter de 6 a 128 caracteres, uma letra maiúscula, um número e a confirmação deve ser igual." });
     const outcome = await change(res.locals.account.id, result.data);
     if (outcome === "wrong-current") return res.status(400).json({ error: "Senha atual incorreta." });
     if (outcome === "same-as-current") return res.status(400).json({ error: SAME_PASSWORD_MESSAGE });
-    return res.json({ message: "Senha alterada com sucesso." });
+    // Cliente: a troca encerra as sessões antigas (passwordChangedAt); esta aba recebe um token novo.
+    return res.json({ message: "Senha alterada com sucesso.", ...(renew ? await session(res.locals.account) : {}) });
 }
 export async function changePassword(req: Request, res: Response) {
-    return respondPasswordChange(req, res, service.changePassword);
+    return respondPasswordChange(req, res, service.changePassword, true);
 }
 
 export async function getAdminProfile(_req: Request, res: Response) {

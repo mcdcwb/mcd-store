@@ -25,3 +25,15 @@ export const REGISTER_CONFIRMATION_MESSAGE = "A confirmação da senha não conf
 export const registerRequestSchema = registerSchema.extend({
     confirmPassword: z.string({ error: REGISTER_CONFIRMATION_MESSAGE }).max(128)
 }).strict().refine(data => data.confirmPassword === data.password, { message: REGISTER_CONFIRMATION_MESSAGE, path: ["confirmPassword"] });
+
+// Recuperação de senha (cliente). A resposta do pedido é sempre a mesma, exista ou não a conta.
+export const FORGOT_PASSWORD_MESSAGE = "Se o e-mail estiver cadastrado, você receberá um link em instantes.";
+export const INVALID_RESET_LINK_MESSAGE = "Este link de redefinição é inválido ou expirou. Peça um novo link.";
+export const PASSWORD_RESET_MESSAGE = "Senha redefinida com sucesso. Entre com a nova senha.";
+export const forgotPasswordSchema = z.object({ email: adminEmailSchema }).strict();
+// Mesma regra de senha do cadastro (passwordSchema) e a confirmação, conferida só aqui.
+export const resetPasswordSchema = z.object({
+    token: z.string().max(200),
+    password: passwordSchema,
+    confirmPassword: z.string({ error: REGISTER_CONFIRMATION_MESSAGE }).max(128)
+}).strict().refine(data => data.confirmPassword === data.password, { message: REGISTER_CONFIRMATION_MESSAGE, path: ["confirmPassword"] });

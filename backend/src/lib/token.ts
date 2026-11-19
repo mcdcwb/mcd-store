@@ -38,9 +38,9 @@ export async function verifyAccountToken(token: string): Promise<TokenIdentity> 
 
     // Legacy tokens may omit role only for the original administrative audience.
     if (payload.aud === audiences.ADMIN && (payload.role === "ADMIN" || payload.role === undefined)) {
-        return { id, role: "ADMIN" };
+        return { id, role: "ADMIN", issuedAt: payload.iat };
     }
-    if (payload.aud === audiences.USER && payload.role === "USER") return { id, role: "USER" };
+    if (payload.aud === audiences.USER && payload.role === "USER") return { id, role: "USER", issuedAt: payload.iat };
     throw new Error("Token inválido.");
 }
 

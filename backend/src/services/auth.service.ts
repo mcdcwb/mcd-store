@@ -27,7 +27,7 @@ export async function login(input: z.infer<typeof loginSchema>) {
     return session(account, admin ? { admin: { id: admin.id, email: admin.email } } : {});
 }
 
-async function session(account: Account, extra: Record<string, unknown> = {}) {
+export async function session(account: Account, extra: Record<string, unknown> = {}) {
     const accessToken = await signAccountToken(account.id, account.role);
     return {
         accessToken,
@@ -39,7 +39,13 @@ async function session(account: Account, extra: Record<string, unknown> = {}) {
     };
 }
 
-export async function getAccount(identity: TokenIdentity): Promise<{ account: Account; active: boolean } | null> {
+// Cliente: JWT emitido antes da última troca/redefinição de senha (passwordChangedAt) deixa de valer.
+// Compara em segundos (precisão do "iat"): o token novo, emitido logo após a troca, continua válido.
+export function issuedBeforePasswordChange(issuedAt: number | undefined, passwordChangedAt: Date | null) {
+    return !!passwordChangedAt && (issuedAt === undefined || issuedAt < Math.floor(passwordChangedAt.getTime() / 1000));
+}
+
+export async function getAccount(identity: TokenIdentity): Promise<{ account: Account; active: boolean; sessionEnded?: boolean } | null> {
     if (identity.role === "ADMIN") {
         const admin = await prisma.admin.findUnique({
             where: { id: identity.id }, select: { id: true, email: true, active: true }
@@ -48,10 +54,11 @@ export async function getAccount(identity: TokenIdentity): Promise<{ account: Ac
         return { account: { id: admin.id, name: admin.email.split("@")[0]!, email: admin.email, role: "ADMIN" }, active: admin.active };
     }
     const user = await prisma.user.findUnique({
-        where: { id: identity.id }, select: { id: true, name: true, email: true, active: true }
+        where: { id: identity.id }, select: { id: true, name: true, email: true, active: true, passwordChangedAt: true }
     });
     return user ? {
         account: { id: user.id, name: user.name, email: user.email, role: "USER" },
-        active: user.active
+        active: user.active,
+        sessionEnded: issuedBeforePasswordChange(identity.issuedAt, user.passwordChangedAt)
     } : null;
 }

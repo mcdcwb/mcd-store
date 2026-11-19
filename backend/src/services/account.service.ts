@@ -44,7 +44,8 @@ async function replacePassword(storedHash: string | undefined, input: z.infer<ty
 export async function changePassword(id: number, input: z.infer<typeof changePasswordSchema>) {
     const user = await prisma.user.findUnique({ where: { id }, select: { passwordHash: true } });
     return replacePassword(user?.passwordHash, input, (passwordHash, expectedHash) =>
-        prisma.user.updateMany({ where: { id, passwordHash: expectedHash }, data: { passwordHash } }));
+        // passwordChangedAt encerra as outras sessões; o controller devolve um token novo para esta.
+        prisma.user.updateMany({ where: { id, passwordHash: expectedHash }, data: { passwordHash, passwordChangedAt: new Date() } }));
 }
 
 const adminSelect = { id: true, email: true } as const;

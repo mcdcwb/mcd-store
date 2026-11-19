@@ -66,3 +66,18 @@ export function logHttpError(event: "http.error" | "healthcheck.error", error: u
 export function logServerStarted(port: number) {
     emit("info", { event: "server.started", port });
 }
+
+// Eventos sem dados da requisição (ex.: envio de e-mail). Só nome do evento, tipo, código e status
+// HTTP do erro: nunca destinatário, link, token ou chave de API.
+export function logEvent(level: "info" | "error", event: "mail.not_configured" | "mail.error", error?: unknown) {
+    const record: Record<string, string | number> = { event };
+    if (error !== undefined) {
+        const { errorType, errorCode } = safeError(error);
+        record.errorType = errorType;
+        if (errorCode) record.errorCode = errorCode;
+        const candidate = error && typeof error === "object" ? error as { code?: unknown; status?: unknown } : {};
+        if (typeof candidate.code === "string" && /^E[A-Z]{2,20}$/.test(candidate.code)) record.errorCode = candidate.code;
+        if (typeof candidate.status === "number" && Number.isInteger(candidate.status) && candidate.status >= 100 && candidate.status <= 599) record.statusCode = candidate.status;
+    }
+    emit(level, record);
+}

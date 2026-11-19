@@ -24,6 +24,7 @@ import { AccountMenu } from "./components/AccountMenu";
 import { panelAccessOf } from "./lib/auth";
 import { FilterSection, FilterOptions } from "./components/CatalogFilters";
 import { AccountPage } from "./components/AccountPage";
+import { PasswordRecoveryPage } from "./components/PasswordRecoveryPage";
 import { MyOrdersPage } from "./components/MyOrdersPage";
 import { BackToTop } from "./components/BackToTop";
 import { StoreLoading } from "./components/StoreLoading";
@@ -78,6 +79,7 @@ export default function App() {
   const accountPath = location.pathname.replace(/\/$/, "");
   const isAccountPage = accountPath === "/minha-conta" || accountPath === "/favoritos" || accountPath === "/meus-pedidos";
   const isCheckoutPage = accountPath === "/checkout";
+  const recoveryMode = accountPath === "/esqueci-senha" ? "request" : accountPath === "/redefinir-senha" ? "reset" : null;
   const [activePublic, setActivePublic] = useState<Public | "todos">("todos");
   const [selectedCategory, setActiveCategory] = useState<Category | null>(null);
   const activeCategory = availableCategories.some(option => option.value === selectedCategory) ? selectedCategory : null;
@@ -86,7 +88,7 @@ export default function App() {
   }, [selectedCategory, activeCategory]);
   const [selectedSizes, setSelectedSizes] = useState<Size[]>([]);
   const [catalogSort, setCatalogSort] = useState<CatalogSort>(null);
-  const { user, accessToken, validating, sessionError, login, register, logout, clearError: clearAuthError, invalidate, updateAccount } = useAuth();
+  const { user, accessToken, validating, sessionError, login, register, logout, clearError: clearAuthError, invalidate, updateAccount, renewSession } = useAuth();
   const [cartOpen, setCartOpen] = useState(false);
   useEffect(() => setCartDrawerOpen(cartOpen), [cartOpen]);
   const [authOpen, setAuthOpen] = useState(false);
@@ -213,6 +215,7 @@ export default function App() {
     if (success) {
       setAuthOpen(false);
       if (success.role === "ADMIN") navigate("/manager");
+      else if (recoveryMode) navigate("/");
     }
   }
 
@@ -508,7 +511,7 @@ export default function App() {
         </div>
       </header>
 
-      {detailProduct && !isAccountPage && !isCheckoutPage ? <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {detailProduct && !isAccountPage && !isCheckoutPage && !recoveryMode ? <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <ProductDetailPage
           key={detailProduct.id}
           product={detailProduct}
@@ -523,8 +526,10 @@ export default function App() {
           }}
           onAddToCart={addToCart} addState={shopping.addState}
         />
-      </div> : accountPath === "/meus-pedidos" ? <MyOrdersPage token={user?.role === "USER" ? accessToken : undefined} onLogin={() => setAuthOpen(true)} /> : isCheckoutPage ? <CheckoutPage user={user} token={accessToken} validating={validating} shopping={shopping} store={store} cartOpen={cartOpen}
-        onOpenCart={() => { setCartOpen(true); shopping.retry(); }} onLogin={startCheckout} onUnauthorized={message => invalidate(accessToken, message)} /> : isAccountPage ? <AccountPage accessToken={accessToken} onUpdated={updateAccount} user={user} favorites={accountPath === "/favoritos"} onLogin={() => setAuthOpen(true)}>
+      </div> : recoveryMode ? <PasswordRecoveryPage key={recoveryMode} mode={recoveryMode} onLogin={() => { clearAuthError(); setAuthMode("login"); setAuthOpen(true); }}
+        // A redefinição encerra as sessões da conta no servidor; esta aba também sai, se estiver logada.
+        onPasswordReset={() => { if (user) handleLogout(); }} /> : accountPath === "/meus-pedidos" ? <MyOrdersPage token={user?.role === "USER" ? accessToken : undefined} onLogin={() => setAuthOpen(true)} /> : isCheckoutPage ? <CheckoutPage user={user} token={accessToken} validating={validating} shopping={shopping} store={store} cartOpen={cartOpen}
+        onOpenCart={() => { setCartOpen(true); shopping.retry(); }} onLogin={startCheckout} onUnauthorized={message => invalidate(accessToken, message)} /> : isAccountPage ? <AccountPage accessToken={accessToken} onUpdated={updateAccount} onSessionRenewed={renewSession} user={user} favorites={accountPath === "/favoritos"} onLogin={() => setAuthOpen(true)}>
           {shopping.ready && !shopping.favorites.length && <p className="mt-4">Nenhum favorito salvo.</p>}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
             {shopping.favorites.map(item => <FavoriteCard key={item.id} item={item} catalog={products.find(current => current.id === item.product.id)} favorite={favoriteControls}
@@ -805,6 +810,7 @@ export default function App() {
           onLogin={handleLogin}
           onRegister={handleRegister}
           onSwitchMode={() => { clearAuthError(); setAuthMode(mode => mode === "login" ? "register" : "login"); }}
+          onForgotPassword={() => { closeAuth(); clearAuthError(); navigate("/esqueci-senha"); }}
           sessionError={sessionError}
         />
       )}

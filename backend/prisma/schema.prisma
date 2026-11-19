@@ -122,9 +122,24 @@ model User {
   name String
   email String @unique
   passwordHash String
+  // Momento da última troca/redefinição de senha: JWT emitido antes disso deixa de valer (encerra as sessões antigas).
+  passwordChangedAt DateTime?
+  passwordResetTokens PasswordResetToken[]
   active Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Recuperação de senha por e-mail: guarda só o hash SHA-256 do token; vale 30 minutos e uma vez.
+model PasswordResetToken {
+  id Int @id @default(autoincrement())
+  userId Int
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
 }
 
 model UserAddress {

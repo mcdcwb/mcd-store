@@ -23,7 +23,8 @@ test("customer profile, address and password use the authenticated identity", as
         userIds = [a.id, b.id];
         await createAdmin({ email: emails[2], password });
         const login = async (email: string, secret = password) => server.request("/auth/login", "POST", { email, password: secret });
-        const token = (await (await login(emails[0])).json()).accessToken;
+        // A troca de senha encerra as sessões antigas e devolve um token novo: os passos seguintes usam ele.
+        let token = (await (await login(emails[0])).json()).accessToken;
         const bToken = (await (await login(emails[1])).json()).accessToken;
         const adminToken = (await (await login(emails[2])).json()).accessToken;
         const req = (path = "/conta", method = "GET", body?: unknown, accessToken = token) => server.request(path, method, body, accessToken);
@@ -89,7 +90,10 @@ test("customer profile, address and password use the authenticated identity", as
             }
             const response = await req("/conta/senha", "PUT", body);
             assert.equal(response.status, 200);
-            assert.deepEqual(await response.json(), { message: "Senha alterada com sucesso." });
+            const changed = await response.json();
+            assert.equal(changed.message, "Senha alterada com sucesso.");
+            token = changed.accessToken;
+            assert.equal((await req("/conta")).status, 200, "token novo vale");
             assert.equal((await login(emails[3])).status, 401);
             assert.equal((await login(emails[3], newPassword)).status, 200);
             assert.equal((await login(emails[1])).status, 200);

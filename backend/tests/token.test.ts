@@ -14,12 +14,12 @@ for (const role of ["USER", "ADMIN"] as const) {
     const claims = decodeJwt(accessToken);
     assert.equal(tokenLifetimeSeconds, 30 * 86400);
     assert.equal(claims.exp! - claims.iat!, tokenLifetimeSeconds);
-    assert.deepEqual(await verifyAccountToken(accessToken), { id: 1, role });
+    assert.deepEqual(await verifyAccountToken(accessToken), { id: 1, role, issuedAt: claims.iat });
     const sign = (iat: number, exp: number) => new SignJWT({ ...claims, iat, exp })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" }).sign(getJwtKey());
     // Tokens older than the former 15-minute limit must remain valid.
     const oldValid = await sign(issuedAt - 86400, issuedAt + 29 * 86400);
-    assert.deepEqual(await verifyAccountToken(oldValid), { id: 1, role });
+    assert.deepEqual(await verifyAccountToken(oldValid), { id: 1, role, issuedAt: issuedAt - 86400 });
     const expired = await sign(issuedAt - tokenLifetimeSeconds - 10, issuedAt - 10);
     await assert.rejects(verifyAccountToken(expired));
     const excessiveAge = await sign(issuedAt - tokenLifetimeSeconds - 10, issuedAt + 100);
@@ -28,7 +28,7 @@ for (const role of ["USER", "ADMIN"] as const) {
     const tampered = await new SignJWT(claims).setProtectedHeader({ alg: "HS256" }).sign(randomBytes(32));
     await assert.rejects(verifyAccountToken(tampered));
     t.mock.timers.enable({ apis: ["Date"], now: (claims.exp! - 1) * 1000 });
-    assert.deepEqual(await verifyAccountToken(accessToken), { id: 1, role });
+    assert.deepEqual(await verifyAccountToken(accessToken), { id: 1, role, issuedAt: claims.iat });
     t.mock.timers.setTime(claims.exp! * 1000);
     await assert.rejects(verifyAccountToken(accessToken));
   });

@@ -14,6 +14,7 @@ export function AuthModal({
   onLogin,
   onRegister,
   onSwitchMode,
+  onForgotPassword,
   sessionError,
 }: {
   mode: "login" | "register";
@@ -21,6 +22,8 @@ export function AuthModal({
   onLogin: (email: string, password: string, signal: AbortSignal) => Promise<void>;
   onRegister: (name: string, email: string, password: string, confirmPassword: string, signal: AbortSignal) => Promise<void>;
   onSwitchMode: () => void;
+  // Só na loja (recuperação de senha é para clientes); sem a função, o link não aparece.
+  onForgotPassword?: () => void;
   sessionError: string | null;
 }) {
   const [name, setName] = useState("");
@@ -171,6 +174,13 @@ export function AuthModal({
                   className={passwordInputClass}
                   required
                 />
+                {onForgotPassword && (
+                  <div className="text-right">
+                    <button type="button" onClick={onForgotPassword} className="text-xs text-primary font-medium underline underline-offset-2 hover:opacity-80">
+                      Esqueci minha senha
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               // Senha + confirmação + requisitos: o mesmo componente da troca de senha na Minha Conta.

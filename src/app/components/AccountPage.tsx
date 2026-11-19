@@ -6,9 +6,10 @@ import { accountRequest, emptyAddress, formatCep, lookupCep, type Address, type 
 import { PasswordChangeFields, isSamePasswordError } from "./PasswordChangeFields";
 import { emptyPasswordChange, passwordChangeState } from "../lib/password-rules";
 
-export function AccountPage({ user, favorites, onLogin, children, accessToken, onUpdated }: {
+export function AccountPage({ user, favorites, onLogin, children, accessToken, onUpdated, onSessionRenewed }: {
   children?: ReactNode; user: Account | null; favorites: boolean; onLogin: () => void;
   accessToken?: string; onUpdated: (token: string, account: Account) => void;
+  onSessionRenewed: (previousToken: string, next: { accessToken: string; expiresAt: number }) => void;
 }) {
   const location = useLocation();
   const checkoutReturn = !favorites && new URLSearchParams(location.search).get("returnTo") === "/checkout";
@@ -27,7 +28,8 @@ export function AccountPage({ user, favorites, onLogin, children, accessToken, o
               ? "Seus favoritos salvos na conta."
               : `Olá, ${user.name.trim().split(/\s+/)[0]}! Este é o espaço da sua conta.`}</p>
             {favorites && children}
-            {!favorites && accessToken && <AccountForm key={accessToken} user={user} token={accessToken} onUpdated={onUpdated} checkoutReturn={checkoutReturn} />}
+            {/* key pela conta (não pelo token): renovar o token após trocar a senha não reinicia o formulário. */}
+            {!favorites && accessToken && <AccountForm key={`${user.role}-${user.id}`} user={user} token={accessToken} onUpdated={onUpdated} onSessionRenewed={onSessionRenewed} checkoutReturn={checkoutReturn} />}
           </>
         ) : (
           <>
@@ -60,7 +62,10 @@ const addressFields: { key: keyof Address; label: string; max: number; autoCompl
   { key: "state", label: "Estado / UF", max: 2, autoComplete: "address-level1" }
 ];
 
-function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account; token: string; onUpdated: (token: string, account: Account) => void; checkoutReturn: boolean }) {
+function AccountForm({ user, token, onUpdated, onSessionRenewed, checkoutReturn }: { user: Account; token: string; onUpdated: (token: string, account: Account) => void;
+  onSessionRenewed: (previousToken: string, next: { accessToken: string; expiresAt: number }) => void; checkoutReturn: boolean }) {
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState<Address>({ ...emptyAddress });
@@ -89,7 +94,7 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
   useEffect(() => {
     const controller = new AbortController();
     setError("");
-    void accountRequest<Profile>(token, "GET", undefined, "/conta", controller.signal).then(profile => {
+    void accountRequest<Profile>(tokenRef.current, "GET", undefined, "/conta", controller.signal).then(profile => {
       if (controller.signal.aborted) return;
       setEmail(profile.account.email);
       setPhone(profile.account.phone ?? "");
@@ -97,7 +102,8 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
       setLoaded(true);
     }).catch(() => { if (!controller.signal.aborted) setError("Não foi possível carregar sua conta. Tente novamente."); });
     return () => controller.abort();
-  }, [token, retry]);
+    // Só na montagem e no "Tentar novamente": o token renovado após trocar a senha não recarrega o perfil.
+  }, [retry]);
 
   useEffect(() => {
     setCepStatus("");
@@ -145,7 +151,9 @@ function AccountForm({ user, token, onUpdated, checkoutReturn }: { user: Account
     if (passwords.newPassword !== passwords.confirmPassword) { setPasswordError("A confirmação da nova senha não confere."); return; }
     const controller = new AbortController(); pending.current = controller; setSaving(true);
     try {
-      await accountRequest(token, "PUT", passwords, "/conta/senha", controller.signal);
+      const renewed = await accountRequest<{ accessToken?: string; expiresAt?: number }>(token, "PUT", passwords, "/conta/senha", controller.signal);
+      // A troca encerra as outras sessões; esta continua com o token novo devolvido pelo servidor.
+      if (renewed.accessToken && typeof renewed.expiresAt === "number") onSessionRenewed(token, { accessToken: renewed.accessToken, expiresAt: renewed.expiresAt });
       if (!alive.current) return;
       setPasswords(emptyPasswordChange);
       setPasswordSuccess("Senha alterada com sucesso.");

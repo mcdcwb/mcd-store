@@ -4,6 +4,8 @@ import { getAccount } from "../services/auth.service.js";
 import type { TokenIdentity } from "../types/auth.js";
 import { preservePublicErrorResponse } from "./error-handler.js";
 
+export const SESSION_ENDED_MESSAGE = "Sua senha foi alterada. Entre novamente.";
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
     res.setHeader("Cache-Control", "no-store");
     const match = /^Bearer ([^\s]+)$/i.exec(req.get("authorization") ?? "");
@@ -21,6 +23,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     try {
         const found = await getAccount(identity);
         if (!found) return res.status(401).json({ error: "Token inválido ou expirado." });
+        if (found.sessionEnded) {
+            res.setHeader("WWW-Authenticate", "Bearer");
+            return res.status(401).json({ error: SESSION_ENDED_MESSAGE });
+        }
         if (!found.active) return res.status(403).json({ error: "Conta inativa." });
         res.locals.account = found.account;
         if (found.account.role === "ADMIN") {

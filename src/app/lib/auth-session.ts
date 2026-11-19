@@ -162,6 +162,18 @@ export function createAuthSession(
       if (accessToken && state.session?.accessToken === accessToken && read()?.accessToken === accessToken) logout(error);
       else void restore();
     },
+    // Troca de senha: o servidor encerra as sessões antigas e devolve um token novo para esta conta.
+    // Salva no armazenamento compartilhado, então as outras abas deste navegador continuam logadas.
+    renewSession(previousToken: string, next: { accessToken: string; expiresAt: number }) {
+      const session = state.session;
+      if (!session || session.accessToken !== previousToken || read()?.accessToken !== previousToken) return;
+      if (!next.accessToken.trim() || !Number.isFinite(next.expiresAt)) return;
+      generation++;
+      const renewed = { ...session, accessToken: next.accessToken, expiresAt: next.expiresAt };
+      try { save(renewed); } catch { /* Sessão segue só na memória. */ }
+      announceChange();
+      publish(renewed);
+    },
     updateAccount(accessToken: string, account: Account) {
       const session = state.session;
       if (!session || session.accessToken !== accessToken || session.account.id !== account.id || session.account.role !== account.role) return;

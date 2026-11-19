@@ -34,7 +34,7 @@ test("troca de senha recusa a nova igual à atual, nos fluxos do cliente e do ad
                 hash: (email: string) => prisma.admin.findUniqueOrThrow({ where: { email }, select: { passwordHash: true } }) },
         ];
         for (const flow of flows) {
-            const token = await tokenFor(flow.email);
+            let token = await tokenFor(flow.email);
             const change = (currentPassword: string, newPassword: string, confirmPassword = newPassword) =>
                 server.request(flow.path, "PUT", { currentPassword, newPassword, confirmPassword }, token);
             const expect400 = async (response: Response, message: string) => {
@@ -64,6 +64,10 @@ test("troca de senha recusa a nova igual à atual, nos fluxos do cliente e do ad
             await t.test(`${flow.name}: nova diferente e válida → 200 e login só com a nova`, async () => {
                 const response = await change(original, other);
                 assert.equal(response.status, 200);
+                // Cliente: a troca encerra a sessão antiga e devolve um token novo (o admin segue como antes).
+                const renewed = (await response.json()).accessToken as string | undefined;
+                assert.equal(renewed !== undefined, flow.path === "/conta/senha");
+                if (renewed) token = renewed;
                 assert.equal((await login(flow.email, other)).status, 200);
                 assert.equal((await login(flow.email, original)).status, 401);
                 // Agora a "atual" é a nova: repetir a mesma também é recusado.
