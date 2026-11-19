@@ -367,19 +367,19 @@ test("guest cart merges; favorites and variants persist after logout and in anot
   await expect(card(page).locator("[data-bookmark-shape]")).toHaveAttribute("fill", "rgba(0, 0, 0, 0.35)");
   await card(page).evaluate(element => window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top - 120)); await card(page).getByRole("img").hover();
   await card(page).getByRole("button", { name: "Favoritar", exact: true }).click();
-  await expect(card(page).getByRole("button", { name: "Remover dos favoritos" })).toHaveAttribute("aria-pressed", "true");
+  await expect(card(page).getByRole("button", { name: "Nos favoritos", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(card(page).locator("[data-bookmark-shape]")).toHaveAttribute("fill", "#c61010");
   await expect(card(page).locator("[data-bookmark-shape]")).toHaveAttribute("stroke", "#c61010");
-  await expect(card(page).getByRole("button", { name: "Remover dos favoritos" }).locator("svg path")).toHaveCount(1);
+  await expect(card(page).getByRole("button", { name: "Nos favoritos", exact: true }).locator("svg path")).toHaveCount(1);
   await expect(card(page).locator("[data-bookmark-shape]")).toHaveAttribute("d", originalShape!);
-  await expect(card(page).getByRole("button", { name: "Remover dos favoritos" })).toHaveCSS("outline-style", "none");
-  await expect(card(page).getByRole("button", { name: "Remover dos favoritos" })).toHaveCSS("border-width", "0px");
-  await expect(card(page).getByRole("button", { name: "Remover dos favoritos" })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(card(page).getByRole("button", { name: "Nos favoritos", exact: true })).toHaveCSS("outline-style", "none");
+  await expect(card(page).getByRole("button", { name: "Nos favoritos", exact: true })).toHaveCSS("border-width", "0px");
+  await expect(card(page).getByRole("button", { name: "Nos favoritos", exact: true })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(card(page).locator("svg rect")).toHaveCount(0);
   await page.mouse.move(0, 0);
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    const favorite = card(page).getByRole("button", { name: "Remover dos favoritos" });
+    const favorite = card(page).getByRole("button", { name: "Nos favoritos", exact: true });
     await expect(favorite.locator("svg")).toHaveCSS("width", "40px");
     await expect(favorite.locator("svg")).toHaveCSS("height", "40px");
     await expect(favorite.locator("[data-bookmark-shape]")).toHaveAttribute("fill", "#c61010");
@@ -421,7 +421,7 @@ test("guest cart merges; favorites and variants persist after logout and in anot
     const second = await other.newPage();
     await second.goto("http://127.0.0.1:4178/");
     await login(second);
-    await expect(card(second).getByRole("button", { name: "Remover dos favoritos" })).toBeVisible();
+    await expect(card(second).getByRole("button", { name: "Nos favoritos", exact: true })).toBeVisible();
     await second.getByRole("button", { name: "Abrir carrinho" }).click();
     await expect(second.getByRole("button", { name: "Aumentar quantidade" })).toHaveCount(2);
     const rows = second.locator("div.flex.gap-3.p-3");
@@ -433,7 +433,7 @@ test("guest cart merges; favorites and variants persist after logout and in anot
     await second.getByRole("button", { name: "Limpar Carrinho" }).click();
     await expect(second.getByText("Carrinho vazio", { exact: true })).toBeVisible();
     await second.keyboard.press("Escape");
-    await card(second).getByRole("button", { name: "Remover dos favoritos" }).click();
+    await card(second).getByRole("button", { name: "Nos favoritos", exact: true }).click();
     await expect(card(second).getByRole("button", { name: "Favoritar", exact: true })).toBeVisible();
     await second.reload();
     await expect(card(second).getByRole("button", { name: "Favoritar", exact: true })).toBeVisible();
@@ -455,16 +455,16 @@ test("favorite actions report one confirmed toast on both pages and passive sync
   await expectSuccess(page, "Produto adicionado aos favoritos!");
   await page.unroute("**/api/favoritos");
   await page.mouse.move(0, 0);
-  const saved = card(page).getByRole("button", { name: "Remover dos favoritos" });
+  const saved = card(page).getByRole("button", { name: "Nos favoritos", exact: true });
   await expect(saved).toHaveCSS("opacity", "1");
-  await expect(card(other).getByRole("button", { name: "Remover dos favoritos" })).toHaveCSS("opacity", "1");
+  await expect(card(other).getByRole("button", { name: "Nos favoritos", exact: true })).toHaveCSS("opacity", "1");
   await expect(successToasts(other)).toHaveCount(0);
   const touchContext = await context.browser()!.newContext({ storageState: await context.storageState(), hasTouch: true, isMobile: true });
   try {
     const touchPage = await touchContext.newPage(); await touchPage.goto("/");
     for (const width of [320, 390, 768, 1440]) {
       await touchPage.setViewportSize({ width, height: 1000 });
-      await expect(card(touchPage).getByRole("button", { name: "Remover dos favoritos" })).toHaveCSS("opacity", "1");
+      await expect(card(touchPage).getByRole("button", { name: "Nos favoritos", exact: true })).toHaveCSS("opacity", "1");
       await expect(touchPage.locator('.store-favorite-bookmark[aria-pressed="false"]').first()).toHaveCSS("opacity", "1");
     }
     await expect(successToasts(touchPage)).toHaveCount(0);
@@ -529,7 +529,7 @@ test("favorite cooldown remains shared across catalog and Favorites navigation",
   await card(page).getByRole('img').hover();
   await card(page).getByRole('button', { name: 'Favoritar', exact: true }).click();
   await page.clock.runFor(0);
-  await expect(card(page).getByRole('button', { name: 'Remover dos favoritos' })).toBeDisabled();
+  await expect(card(page).getByRole('button', { name: 'Nos favoritos', exact: true })).toBeDisabled();
   // O toast de "favoritado" vem da resposta do servidor e o sonner o renderiza num timer, que com o relógio
   // pausado só dispara num runFor: repete o runFor(0) (não avança o tempo) até ele aparecer. Antes, aparecia
   // ou não conforme a resposta chegasse antes do runFor(0) e, quando aparecia, nunca expirava e podia cobrir

@@ -269,20 +269,28 @@ export function useShopping(products: Product[], accessToken: string | undefined
     return true;
   }
   const isFavorite = (productId: number, colorId: number | null, size: string | null) => favorites.some(f => sameFavorite(f, productId, colorId, size));
-  async function toggleFavorite(productId: number, colorId: number | null, size: string | null) {
+  // Tamanhos favoritados do produto nessa cor (null = favorito só da cor).
+  const favoriteSizes = (productId: number, colorId: number | null) =>
+    favorites.filter(f => f.product.id === productId && f.colorId === colorId).map(f => f.size);
+  // `allSizes` (card sem tamanho escolhido): se houver qualquer favorito da cor, remove todos eles
+  // numa única requisição; senão favorita só a cor.
+  async function toggleFavorite(productId: number, colorId: number | null, size: string | null, options: { allSizes?: boolean } = {}) {
     if (!favoriteToken || !favoriteReady || !isCurrent()) return false;
+    const allSizes = Boolean(options.allSizes) && size === null;
     return favoriteFeedback.run(favoriteKey(productId, colorId, size), async () => {
       const current = generation.current;
-      const removing = isFavorite(productId, colorId, size);
+      const removing = allSizes ? favoriteSizes(productId, colorId).length > 0 : isFavorite(productId, colorId, size);
+      const affected = (f: FavoriteItem) => allSizes && removing
+        ? f.product.id === productId && f.colorId === colorId : sameFavorite(f, productId, colorId, size);
       setError("");
       try {
-        const result = await request("/favoritos", removing ? "DELETE" : "POST", { productId, colorId, size });
+        const result = await request("/favoritos", removing ? "DELETE" : "POST", { productId, colorId, size, ...(allSizes && removing ? { allSizes: true } : {}) });
         if (current !== generation.current || !isCurrent()) return false;
-        const confirmed = adaptFavorites(result).find(f => sameFavorite(f, productId, colorId, size));
-        // Merge only this combination: independent requests can return snapshots out of order.
+        const confirmed = adaptFavorites(result).filter(affected);
+        // Merge only these combinations: independent requests can return snapshots out of order.
         setAccount(previous => previous?.token === favoriteToken ? {
           ...previous, favorites: [
-            ...previous.favorites.filter(f => !sameFavorite(f, productId, colorId, size)), ...(confirmed ? [confirmed] : [])
+            ...previous.favorites.filter(f => !affected(f)), ...confirmed
           ].sort((a, b) => a.id - b.id)
         } : previous);
         announce();
@@ -299,6 +307,6 @@ export function useShopping(products: Product[], accessToken: string | undefined
     items, favorites, busy, ready, favoriteReady, error, notice, favoriteBlocked: favoriteFeedback.blocked, favoriteState: favoriteFeedback.state, addState: additions.getState, add, remove, changeQty, clear,
     dismissNotice: () => setNotice(""),
     retry: () => setRevision(v => v + 1),
-    toggleFavorite, isFavorite
+    toggleFavorite, isFavorite, favoriteSizes
   };
 }

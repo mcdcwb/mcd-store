@@ -79,6 +79,12 @@ test("account shopping persists, isolates users and enforces stock in PostgreSQL
                 assert.deepEqual(await combos(), ["Amarelo/-", "Amarelo/G", "Preto/G"]);
                 await prisma.productColor.delete({ where: { id: black.id } });
                 assert.deepEqual(await combos(), ["Amarelo/-", "Amarelo/G"]);
+                // allSizes (card sem tamanho) removes every favorite of that color, with or without size, and keeps other colors.
+                const white = await prisma.productColor.create({ data: { productId: shirt.id, colorName: "Branco", colorValue: "#ffffff", images: [], position: 2, variants: { create: [{ value: "P", stock: 1 }] } } });
+                assert.equal((await req("/favoritos", "POST", { productId: shirt.id, colorId: white.id, size: "P" })).status, 200);
+                assert.equal((await req("/favoritos", "POST", { productId: shirt.id, colorId: yellow.id, allSizes: true })).status, 400);
+                assert.equal((await req("/favoritos", "DELETE", { productId: shirt.id, colorId: yellow.id, allSizes: true })).status, 200);
+                assert.deepEqual(await combos(), ["Branco/P"]);
             } finally { await prisma.product.delete({ where: { id: shirt.id } }); }
         });
         await t.test("cart adds variants, changes quantities and survives login", async () => {

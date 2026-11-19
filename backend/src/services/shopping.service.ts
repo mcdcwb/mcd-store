@@ -21,9 +21,12 @@ async function validateFavorite({ productId, colorId, size }: FavoriteSelection)
     if (size !== null && !await prisma.productVariant.findFirst({ where: { colorId: colorId!, value: size }, select: { id: true } })) throw new ShoppingError(404, "Tamanho não encontrado para esta cor.");
 }
 // `selection` sem cor/tamanho definidos (undefined) remove todas as combinações do produto (rota antiga).
-export async function favorite(owner: FavoriteOwner, selection: FavoriteSelection | { productId: number; colorId?: undefined; size?: undefined }, remove = false) {
+// Na remoção, `allSizes` apaga todos os favoritos do produto naquela cor, com ou sem tamanho (card sem tamanho escolhido).
+export async function favorite(owner: FavoriteOwner, selection: (FavoriteSelection & { allSizes?: boolean }) | { productId: number; colorId?: undefined; size?: undefined; allSizes?: undefined }, remove = false) {
     const exact = selection.colorId !== undefined;
-    const match = exact ? { productId: selection.productId, colorId: selection.colorId, size: selection.size ?? null } : { productId: selection.productId };
+    const match = !exact ? { productId: selection.productId }
+        : remove && selection.allSizes ? { productId: selection.productId, colorId: selection.colorId }
+        : { productId: selection.productId, colorId: selection.colorId, size: selection.size ?? null };
     if (!remove) await validateFavorite({ productId: selection.productId, colorId: selection.colorId ?? null, size: selection.size ?? null });
     const data = { productId: selection.productId, colorId: selection.colorId ?? null, size: selection.size ?? null };
     try {

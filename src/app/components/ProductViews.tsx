@@ -13,7 +13,10 @@ import { selectProductColor, stockFor, type Product, type Size } from "../lib/pr
 // Favoritar trabalha com a combinação produto + cor + tamanho (null = não escolhido).
 export interface FavoriteControls {
   isFavorite: (productId: number, colorId: number | null, size: string | null) => boolean;
-  onFavorite: (productId: number, colorId: number | null, size: string | null) => void;
+  // Tamanhos favoritados do produto nessa cor (null = favorito só da cor).
+  favoriteSizes: (productId: number, colorId: number | null) => (string | null)[];
+  // `allSizes` (só com size null): remove todos os favoritos da cor se houver algum; senão favorita a cor.
+  onFavorite: (productId: number, colorId: number | null, size: string | null, options?: { allSizes?: boolean }) => void;
   favoritePending: (productId: number, colorId: number | null, size: string | null) => boolean;
   favoriteBusy: (productId: number, colorId: number | null, size: string | null) => boolean;
 }
@@ -221,6 +224,15 @@ export function ProductCard({
   const additionState = addState(product, selectedSize);
   const added = additionState === "added";
   const favoriteArgs = [baseProduct.id, product.colorId, selectedSize] as const;
+  // Sem tamanho escolhido o marcador vale para a cor inteira: preenchido se houver qualquer favorito
+  // dela (com ou sem tamanho), com os tamanhos salvos no rótulo; clicar remove todos de uma vez.
+  const colorFavoriteSizes = selectedSize ? [] : favorite.favoriteSizes(baseProduct.id, product.colorId);
+  // Ordem da grade de tamanhos; tamanho que saiu da grade vem depois e "sem tamanho" por último.
+  // Só o favorito da cor (sem tamanho) fica "Nos favoritos", sem lista.
+  const sizeOrder = (size: string | null) => size === null ? product.sizes.length + 1 : (index => index < 0 ? product.sizes.length : index)(product.sizes.indexOf(size));
+  const colorFavoriteLabel = !colorFavoriteSizes.length ? undefined
+    : colorFavoriteSizes.every(size => size === null) ? "Nos favoritos"
+    : `Nos favoritos (${[...colorFavoriteSizes].sort((a, b) => sizeOrder(a) - sizeOrder(b)).map(size => size ?? "sem tamanho").join(", ")})`;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const productImages = product.images && product.images.length > 0 ? product.images : [product.imageUrl];
@@ -308,8 +320,11 @@ export function ProductCard({
         )}
         <ProductBadges product={badgeProduct ?? baseProduct} settings={stockSettings} selection={{ colorId: badgeColorId ?? undefined, size: selectedSize ?? undefined }} />
         {/* Wishlist */}
-        {/* No card o favorito usa a cor exibida e o tamanho selecionado no card (sem tamanho = só a cor), como na página do produto. */}
-        <ProductFavoriteButton liked={favorite.isFavorite(...favoriteArgs)} onFavorite={() => favorite.onFavorite(...favoriteArgs)}
+        {/* Com tamanho escolhido o favorito é exatamente cor + tamanho, como na página do produto.
+            Sem tamanho, reflete qualquer favorito da cor e o clique remove todos eles (ou favorita só a cor). */}
+        <ProductFavoriteButton liked={selectedSize ? favorite.isFavorite(...favoriteArgs) : colorFavoriteSizes.length > 0}
+          likedLabel={colorFavoriteLabel}
+          onFavorite={() => favorite.onFavorite(...favoriteArgs, { allSizes: !selectedSize })}
           favoriteBusy={favorite.favoriteBusy(...favoriteArgs)} favoritePending={favorite.favoritePending(...favoriteArgs)} />
       </div>
 

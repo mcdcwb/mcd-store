@@ -151,13 +151,14 @@ export default function App() {
       {shopping.error && <button className="ml-3 underline" onClick={shopping.retry}>Tentar novamente</button>}
     </div>
   );
-  function toggleFavorite(productId: number, colorId: number | null, size: string | null) {
+  function toggleFavorite(productId: number, colorId: number | null, size: string | null, options?: { allSizes?: boolean }) {
     if (!user) { setAuthMode("login"); setAuthOpen(true); return; }
-    void shopping.toggleFavorite(productId, colorId, size);
+    void shopping.toggleFavorite(productId, colorId, size, options);
   }
   // Coração = combinação produto + cor + tamanho (null = não escolhido).
   const favoriteControls: FavoriteControls = {
     isFavorite: shopping.isFavorite,
+    favoriteSizes: shopping.favoriteSizes,
     onFavorite: toggleFavorite,
     favoritePending: (productId, colorId, size) => shopping.favoriteState(favoriteKey(productId, colorId, size)) === "pending",
     favoriteBusy: (productId, colorId, size) => validating || (!!user && !shopping.favoriteReady) || shopping.favoriteBlocked(favoriteKey(productId, colorId, size)),

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 
 for (const touch of [false, true]) for (const width of [320, 390, 768, 1440]) {
   test.describe(`bookmark ${touch ? "touch" : "desktop"} ${width}`, () => {
@@ -109,7 +109,7 @@ test.describe("card favorite with size", () => {
     const headers = { Authorization: `Bearer ${adminToken}` };
     const categoryId = (await (await request.get("/api/categorias", { headers })).json()).find((c: { name: string }) => c.name === "camisetas").id;
     const created = await request.post("/api/produtos", { headers, data: { name, price: 32, public: "unissex", categoryId,
-      colors: [{ colorName: "Preto", colorValue: "#111111", images: [], variants: [{ value: "P", stock: 3 }, { value: "M", stock: 2 }] }] } });
+      colors: [{ colorName: "Preto", colorValue: "#111111", images: [], variants: [{ value: "P", stock: 3 }, { value: "M", stock: 2 }, { value: "G", stock: 2 }] }] } });
     expect(created.status()).toBe(201);
     product = await created.json();
   });
@@ -117,8 +117,8 @@ test.describe("card favorite with size", () => {
     if (product) await request.delete(`/api/produtos/${product.id}`, { headers: { Authorization: `Bearer ${adminToken}` } });
   });
 
-  test("favoriting from the card keeps the selected size and shows add to cart in Favoritos", async ({ page, request }) => {
-    const token = (await (await request.post("/api/auth/login", { data: { email: process.env.E2E_USER_EMAIL, password: process.env.E2E_USER_PASSWORD } })).json()).accessToken;
+  async function loginAsCustomer(page: Page, request: APIRequestContext) {
+    const token = (await (await request.post("/api/auth/login", { data: { email: process.env.E2E_USER_EMAIL, password: process.env.E2E_USER_PASSWORD } })).json()).accessToken as string;
     await request.delete(`/api/favoritos/${product!.id}`, { headers: { Authorization: `Bearer ${token}` } });
     await page.goto("/");
     await page.getByRole("button", { name: "Entrar", exact: true }).first().click();
@@ -127,8 +127,13 @@ test.describe("card favorite with size", () => {
     await page.locator('form button[type="submit"]').click();
     await expect(page.getByRole("button", { name: "Cliente", exact: true })).toBeVisible();
     await expect(page.getByText("Sincronizando favoritos e carrinho...")).toHaveCount(0);
+    return token;
+  }
+  const productCard = (page: Page) => page.locator("main div.group").filter({ has: page.getByText(name, { exact: true }) });
 
-    const card = page.locator("main div.group").filter({ has: page.getByText(name, { exact: true }) });
+  test("favoriting from the card keeps the selected size and shows add to cart in Favoritos", async ({ page, request }) => {
+    const token = await loginAsCustomer(page, request);
+    const card = productCard(page);
     await card.getByRole("button", { name: "M", exact: true }).click();
     await expect(card.getByRole("button", { name: "M", exact: true })).toHaveAttribute("aria-pressed", "true");
     await card.getByRole("button", { name: "Favoritar", exact: true }).press("Enter");
@@ -146,5 +151,46 @@ test.describe("card favorite with size", () => {
     await expect(favorite.getByRole("button", { name: "Adicionar ao carrinho", exact: true })).toBeEnabled();
     await expect(favorite.getByRole("button", { name: "Escolher tamanho" })).toHaveCount(0);
     await request.delete(`/api/favoritos/${product!.id}`, { headers: { Authorization: `Bearer ${token}` } });
+  });
+
+  test("favorited G, reloaded: the card without a size stays filled, lists the sizes and removes all with one toast", async ({ page, request }) => {
+    const token = await loginAsCustomer(page, request);
+    const headers = { Authorization: `Bearer ${token}` };
+    let card = productCard(page);
+    await card.getByRole("button", { name: "G", exact: true }).click();
+    await card.getByRole("button", { name: "Favoritar", exact: true }).press("Enter");
+    await expect(card.getByRole("button", { name: "Remover dos favoritos" })).toHaveAttribute("aria-pressed", "true");
+
+    // Recarregou: o card volta sem tamanho, mas o marcador continua preenchido e diz qual tamanho está salvo.
+    await page.reload();
+    await expect(page.getByText("Sincronizando favoritos e carrinho...")).toHaveCount(0);
+    card = productCard(page);
+    for (const size of ["P", "M", "G"]) await expect(card.getByRole("button", { name: size, exact: true })).toHaveAttribute("aria-pressed", "false");
+    const saved = card.getByRole("button", { name: "Nos favoritos (G)", exact: true });
+    await expect(saved).toHaveAttribute("aria-pressed", "true");
+    await expect(saved.locator('[role="tooltip"]')).toHaveText("Nos favoritos (G)");
+    await expect(card.locator("[data-bookmark-shape]")).toHaveAttribute("fill", "#c61010");
+
+    // Mais um tamanho salvo: os dois aparecem na ordem da grade.
+    await card.getByRole("button", { name: "M", exact: true }).click();
+    await card.getByRole("button", { name: "Favoritar", exact: true }).press("Enter");
+    await expect(card.getByRole("button", { name: "Remover dos favoritos" })).toHaveAttribute("aria-pressed", "true");
+    await page.reload();
+    await expect(page.getByText("Sincronizando favoritos e carrinho...")).toHaveCount(0);
+    card = productCard(page);
+    const both = card.getByRole("button", { name: "Nos favoritos (M, G)", exact: true });
+    await expect(both).toHaveAttribute("aria-pressed", "true");
+
+    // Sem tamanho escolhido, clicar remove todos os favoritos da cor, com um único toast, e não cria um favorito sem tamanho.
+    await both.press("Enter");
+    await expect(card.getByRole("button", { name: "Favoritar", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("[data-store-toast]").filter({ hasText: "Produto removido dos favoritos!" })).toHaveCount(1);
+    await expect(page.locator("[data-store-toast]")).toHaveCount(1);
+    const remaining = await (await request.get("/api/favoritos", { headers })).json() as { product: { id: number } }[];
+    expect(remaining.filter(f => f.product.id === product!.id)).toEqual([]);
+    for (const size of ["M", "G"]) {
+      await card.getByRole("button", { name: size, exact: true }).click();
+      await expect(card.getByRole("button", { name: "Favoritar", exact: true })).toHaveAttribute("aria-pressed", "false");
+    }
   });
 });
