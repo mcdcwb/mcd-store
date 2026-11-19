@@ -175,8 +175,8 @@ export function AuthModal({
                   required
                 />
                 {onForgotPassword && (
-                  <div className="text-right">
-                    <button type="button" onClick={onForgotPassword} className="text-xs text-primary font-medium underline underline-offset-2 hover:opacity-80">
+                  <div className="text-center pt-1">
+                    <button type="button" onClick={onForgotPassword} className="text-sm text-primary font-medium underline underline-offset-2 hover:opacity-80">
                       Esqueci minha senha
                     </button>
                   </div>
